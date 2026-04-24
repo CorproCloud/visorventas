@@ -137,7 +137,7 @@ export function DashboardPage() {
                 tickFormatter={(v) => fmtNumber(v, true)} />
               <Tooltip
                 contentStyle={tooltipStyle}
-                formatter={(v: number) => fmtMoney(v)}
+                formatter={(v: any) => fmtMoney(Number(v))}
                 cursor={{ fill: "var(--muted)" }}
               />
               <Area type="monotone" dataKey="ventas" stroke="var(--chart-1)" strokeWidth={2.5} fill="url(#g1)" />
@@ -160,7 +160,7 @@ export function DashboardPage() {
                   <Cell key={i} fill={`var(--chart-${(i % 5) + 1})`} />
                 ))}
               </Pie>
-              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmtMoney(v, true)} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => fmtMoney(Number(v), true)} />
               <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
             </PieChart>
           </ResponsiveContainer>
@@ -176,7 +176,7 @@ export function DashboardPage() {
                 tickFormatter={(v) => fmtNumber(v, true)} />
               <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={10} tickLine={false}
                 axisLine={false} width={140} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmtMoney(v)} cursor={{ fill: "var(--muted)" }} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => fmtMoney(Number(v))} cursor={{ fill: "var(--muted)" }} />
               <Bar dataKey="ventas" fill="var(--chart-2)" radius={[0, 6, 6, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -189,7 +189,7 @@ export function DashboardPage() {
               <XAxis dataKey="period" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
               <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false}
                 tickFormatter={(v) => `${v}%`} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => `${v}%`} cursor={{ fill: "var(--muted)" }} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => `${v}%`} cursor={{ fill: "var(--muted)" }} />
               <Bar dataKey="margen" fill="var(--chart-3)" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
