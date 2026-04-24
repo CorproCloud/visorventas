@@ -3,13 +3,15 @@ import { LayoutDashboard, Home, Table2, Package, Database, Sparkles } from "luci
 import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
 
-const NAV = [
+type NavItem = { to: string; label: string; icon: typeof Home; exact?: boolean };
+
+const NAV: NavItem[] = [
   { to: "/", label: "Inicio", icon: Home, exact: true },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/explorer", label: "Explorador", icon: Table2 },
   { to: "/catalog", label: "Catálogo", icon: Package },
   { to: "/data", label: "Datos", icon: Database },
-] as const;
+];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { location } = useRouterState();
