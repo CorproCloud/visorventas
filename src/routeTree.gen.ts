@@ -14,6 +14,7 @@ import { Route as DataRouteImport } from './routes/data'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CatalogRouteImport } from './routes/catalog'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CustomersCustomerIdRouteImport } from './routes/customers.$customerId'
 
 const ExplorerRoute = ExplorerRouteImport.update({
   id: '/explorer',
@@ -40,6 +41,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CustomersCustomerIdRoute = CustomersCustomerIdRouteImport.update({
+  id: '/customers/$customerId',
+  path: '/customers/$customerId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/data': typeof DataRoute
   '/explorer': typeof ExplorerRoute
+  '/customers/$customerId': typeof CustomersCustomerIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/data': typeof DataRoute
   '/explorer': typeof ExplorerRoute
+  '/customers/$customerId': typeof CustomersCustomerIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,33 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/data': typeof DataRoute
   '/explorer': typeof ExplorerRoute
+  '/customers/$customerId': typeof CustomersCustomerIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/catalog' | '/dashboard' | '/data' | '/explorer'
+  fullPaths:
+    | '/'
+    | '/catalog'
+    | '/dashboard'
+    | '/data'
+    | '/explorer'
+    | '/customers/$customerId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/catalog' | '/dashboard' | '/data' | '/explorer'
-  id: '__root__' | '/' | '/catalog' | '/dashboard' | '/data' | '/explorer'
+  to:
+    | '/'
+    | '/catalog'
+    | '/dashboard'
+    | '/data'
+    | '/explorer'
+    | '/customers/$customerId'
+  id:
+    | '__root__'
+    | '/'
+    | '/catalog'
+    | '/dashboard'
+    | '/data'
+    | '/explorer'
+    | '/customers/$customerId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +105,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   DataRoute: typeof DataRoute
   ExplorerRoute: typeof ExplorerRoute
+  CustomersCustomerIdRoute: typeof CustomersCustomerIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/customers/$customerId': {
+      id: '/customers/$customerId'
+      path: '/customers/$customerId'
+      fullPath: '/customers/$customerId'
+      preLoaderRoute: typeof CustomersCustomerIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   DataRoute: DataRoute,
   ExplorerRoute: ExplorerRoute,
+  CustomersCustomerIdRoute: CustomersCustomerIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

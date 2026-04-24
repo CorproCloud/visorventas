@@ -1,59 +1,73 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Package, Search, TrendingUp, Database } from "lucide-react";
-import { useDataStore } from "@/lib/store";
+import { useDataStore, filterInvoices } from "@/lib/store";
 import { PeriodSelector } from "@/components/layout/PeriodSelector";
 import { fmtMoney, fmtNumber, fmtPct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 24;
 
+interface ProductRow {
+  code: string;
+  description: string;
+  category: string;
+  unit: string;
+  units: number;
+  netSales: number;
+  invoiceCount: number;
+  customerCount: number;
+  avgPrice: number;
+  rotation: number; // facturas en que aparece
+}
+
 export function CatalogPage() {
   const ds = useDataStore((s) => s.datasets.find((d) => d.id === s.activeDatasetId) ?? null);
-  const period = useDataStore((s) => s.selectedPeriod);
+  const year = useDataStore((s) => s.selectedYear);
+  const month = useDataStore((s) => s.selectedMonth);
 
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("all");
   const [visible, setVisible] = useState(PAGE_SIZE);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const items = useMemo(() => {
+  const items = useMemo<ProductRow[]>(() => {
     if (!ds) return [];
-    // Aggregate per code (across selected period or all)
-    const recs = period ? ds.records.filter((r) => r.period === period) : ds.records;
-    const map = new Map<string, {
-      code: string; description: string; category: string; unit: string;
-      units: number; netSales: number; netCost: number; appearances: number;
-    }>();
-    for (const r of recs) {
-      const k = r.code;
-      const cur = map.get(k);
-      if (cur) {
-        cur.units += r.units;
-        cur.netSales += r.netSales;
-        cur.netCost += r.netCost;
-        cur.appearances += 1;
-      } else {
-        map.set(k, {
-          code: r.code,
-          description: r.description,
-          category: r.category ?? "Otros",
-          unit: r.unit,
-          units: r.units,
-          netSales: r.netSales,
-          netCost: r.netCost,
-          appearances: 1,
-        });
+    const invs = filterInvoices(ds.invoices, year, month);
+    const map = new Map<string, ProductRow & { _customers: Set<string> }>();
+    for (const inv of invs) {
+      for (const ln of inv.lines) {
+        const k = ln.code;
+        let cur = map.get(k);
+        if (!cur) {
+          cur = {
+            code: ln.code,
+            description: ln.description,
+            category: ln.category ?? "Otros",
+            unit: ln.unit,
+            units: 0,
+            netSales: 0,
+            invoiceCount: 0,
+            customerCount: 0,
+            avgPrice: 0,
+            rotation: 0,
+            _customers: new Set(),
+          };
+          map.set(k, cur);
+        }
+        cur.units += ln.quantity;
+        cur.netSales += ln.lineNet;
+        cur.invoiceCount += 1;
+        cur.rotation += 1;
+        cur._customers.add(inv.customerName);
       }
     }
-    return Array.from(map.values())
-      .map((x) => ({
-        ...x,
-        margin: x.netSales > 0 ? ((x.netSales - x.netCost) / x.netSales) * 100 : 0,
-        rotation: x.appearances, // # of period entries — proxy for rotation
-      }))
-      .sort((a, b) => b.netSales - a.netSales);
-  }, [ds, period]);
+    return Array.from(map.values()).map((x) => ({
+      ...x,
+      avgPrice: x.units > 0 ? x.netSales / x.units : 0,
+      customerCount: x._customers.size,
+    })).sort((a, b) => b.netSales - a.netSales);
+  }, [ds, year, month]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -66,17 +80,13 @@ export function CatalogPage() {
     if (category !== "all") arr = arr.filter((i) => i.category === category);
     const q = query.trim().toLowerCase();
     if (q) {
-      arr = arr.filter(
-        (i) => i.code.toLowerCase().includes(q) || i.description.toLowerCase().includes(q),
-      );
+      arr = arr.filter((i) => i.code.toLowerCase().includes(q) || i.description.toLowerCase().includes(q));
     }
     return arr;
   }, [items, category, query]);
 
-  // Reset window on filter change
-  useEffect(() => setVisible(PAGE_SIZE), [query, category, period]);
+  useEffect(() => setVisible(PAGE_SIZE), [query, category, year, month]);
 
-  // Infinite scroll
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
@@ -100,6 +110,7 @@ export function CatalogPage() {
   }
 
   const totalSales = filtered.reduce((a, b) => a + b.netSales, 0);
+  const maxSales = filtered[0]?.netSales || 1;
 
   return (
     <div className="px-4 sm:px-8 py-6 sm:py-8 max-w-[1500px] mx-auto">
@@ -124,21 +135,16 @@ export function CatalogPage() {
           />
         </div>
         <div className="flex gap-1.5 overflow-x-auto pb-1">
-          <CategoryChip active={category === "all"} onClick={() => setCategory("all")}>
-            Todas
-          </CategoryChip>
+          <CategoryChip active={category === "all"} onClick={() => setCategory("all")}>Todas</CategoryChip>
           {categories.map((c) => (
-            <CategoryChip key={c} active={category === c} onClick={() => setCategory(c)}>
-              {c}
-            </CategoryChip>
+            <CategoryChip key={c} active={category === c} onClick={() => setCategory(c)}>{c}</CategoryChip>
           ))}
         </div>
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filtered.slice(0, visible).map((i, idx) => (
-          <article key={i.code}
-            className="group relative rounded-2xl bg-card border border-border p-5 hover:border-primary/40 hover:shadow-[var(--shadow-md)] transition-all">
+          <article key={i.code} className="group relative rounded-2xl bg-card border border-border p-5 hover:border-primary/40 hover:shadow-[var(--shadow-md)] transition-all">
             <div className="flex items-start justify-between mb-3">
               <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                 <Package className="h-5 w-5" />
@@ -154,15 +160,19 @@ export function CatalogPage() {
             <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
               <Metric label="Venta" value={fmtMoney(i.netSales, true)} />
               <Metric label="Unidades" value={fmtNumber(i.units, true)} />
-              <Metric label="Margen" value={fmtPct(i.margin)} accent={i.margin >= 25 ? "good" : i.margin >= 15 ? "ok" : "warn"} />
-              <Metric label="Rotación" value={`${i.rotation}× per.`} />
+              <Metric label="Precio prom." value={fmtMoney(i.avgPrice)} />
+              <Metric label="Clientes" value={fmtNumber(i.customerCount)} accent={i.customerCount >= 10 ? "good" : i.customerCount >= 3 ? "ok" : "warn"} />
             </div>
 
-            <div className="mt-4 h-1.5 w-full bg-muted rounded-full overflow-hidden">
+            <div className="mt-3 text-[11px] text-muted-foreground">
+              Rotación: <span className="font-semibold text-foreground">{i.rotation}× facturas</span>
+            </div>
+
+            <div className="mt-3 h-1.5 w-full bg-muted rounded-full overflow-hidden">
               <div
                 className="h-full"
                 style={{
-                  width: `${Math.min(100, (i.netSales / (filtered[0]?.netSales || 1)) * 100)}%`,
+                  width: `${Math.min(100, (i.netSales / maxSales) * 100)}%`,
                   background: "var(--gradient-emerald)",
                 }}
               />
@@ -205,16 +215,17 @@ function Metric({ label, value, accent }: { label: string; value: string; accent
   return (
     <div className="rounded-lg bg-muted/40 px-2.5 py-2">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div
-        className={cn(
-          "text-sm font-semibold tabular-nums",
-          accent === "good" && "text-emerald",
-          accent === "warn" && "text-brand-red",
-          accent === "ok" && "text-warning",
-        )}
-      >
+      <div className={cn(
+        "text-sm font-semibold tabular-nums",
+        accent === "good" && "text-emerald",
+        accent === "warn" && "text-brand-red",
+        accent === "ok" && "text-warning",
+      )}>
         {value}
       </div>
     </div>
   );
 }
+
+// Re-export fmtPct so the file does not show as unused even if we add later
+export const _ = fmtPct;

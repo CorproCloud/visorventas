@@ -1,14 +1,14 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Home, Table2, Package, Database, Sparkles } from "lucide-react";
+import { LayoutDashboard, Home, Table2, Package, Database, Sparkles, Users } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
 
 type NavItem = { to: string; label: string; icon: typeof Home; exact?: boolean };
 
 const NAV: NavItem[] = [
-  { to: "/", label: "Inicio", icon: Home, exact: true },
+  { to: "/", label: "Clientes", icon: Users, exact: true },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/explorer", label: "Explorador", icon: Table2 },
+  { to: "/explorer", label: "Facturas", icon: Table2 },
   { to: "/catalog", label: "Catálogo", icon: Package },
   { to: "/data", label: "Datos", icon: Database },
 ];

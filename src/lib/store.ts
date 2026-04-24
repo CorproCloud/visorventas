@@ -1,16 +1,36 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { Dataset, SalesRecord } from "./types";
+import type { Dataset, Invoice } from "./types";
 
 interface DataState {
   datasets: Dataset[];
   activeDatasetId: string | null;
-  selectedPeriod: string | null; // active period filter
-  addDataset: (name: string, records: SalesRecord[], periods: string[]) => string;
+  selectedYear: string | null;       // filtro yyyy o null = todos
+  selectedMonth: string | null;      // filtro yyyy-mm o null = todos
+  addDataset: (name: string, invoices: Invoice[]) => string;
   removeDataset: (id: string) => void;
   setActive: (id: string | null) => void;
-  setPeriod: (period: string | null) => void;
+  setYear: (y: string | null) => void;
+  setMonth: (m: string | null) => void;
   clearAll: () => void;
+}
+
+function buildDataset(name: string, invoices: Invoice[]): Dataset {
+  const months = Array.from(new Set(invoices.map((i) => i.yearMonth))).sort();
+  const years = Array.from(new Set(invoices.map((i) => i.year))).sort();
+  const dates = invoices.map((i) => i.date).sort();
+  const lineCount = invoices.reduce((a, i) => a + i.lines.length, 0);
+  return {
+    id: `ds-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name,
+    uploadedAt: Date.now(),
+    invoices,
+    invoiceCount: invoices.length,
+    lineCount,
+    months,
+    years,
+    dateRange: { from: dates[0] ?? "", to: dates.at(-1) ?? "" },
+  };
 }
 
 export const useDataStore = create<DataState>()(
@@ -18,24 +38,18 @@ export const useDataStore = create<DataState>()(
     (set, get) => ({
       datasets: [],
       activeDatasetId: null,
-      selectedPeriod: null,
+      selectedYear: null,
+      selectedMonth: null,
 
-      addDataset: (name, records, periods) => {
-        const id = `ds-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-        const ds: Dataset = {
-          id,
-          name,
-          uploadedAt: Date.now(),
-          rowCount: records.length,
-          periods,
-          records,
-        };
+      addDataset: (name, invoices) => {
+        const ds = buildDataset(name, invoices);
         set({
           datasets: [...get().datasets, ds],
-          activeDatasetId: id,
-          selectedPeriod: periods[periods.length - 1] ?? null,
+          activeDatasetId: ds.id,
+          selectedYear: null,
+          selectedMonth: null,
         });
-        return id;
+        return ds.id;
       },
 
       removeDataset: (id) => {
@@ -44,21 +58,18 @@ export const useDataStore = create<DataState>()(
         set({
           datasets: remaining,
           activeDatasetId: wasActive ? remaining[0]?.id ?? null : get().activeDatasetId,
-          selectedPeriod: wasActive ? remaining[0]?.periods.at(-1) ?? null : get().selectedPeriod,
+          selectedYear: wasActive ? null : get().selectedYear,
+          selectedMonth: wasActive ? null : get().selectedMonth,
         });
       },
 
-      setActive: (id) => {
-        const ds = get().datasets.find((d) => d.id === id);
-        set({ activeDatasetId: id, selectedPeriod: ds?.periods.at(-1) ?? null });
-      },
-
-      setPeriod: (period) => set({ selectedPeriod: period }),
-
-      clearAll: () => set({ datasets: [], activeDatasetId: null, selectedPeriod: null }),
+      setActive: (id) => set({ activeDatasetId: id, selectedYear: null, selectedMonth: null }),
+      setYear: (y) => set({ selectedYear: y, selectedMonth: null }),
+      setMonth: (m) => set({ selectedMonth: m }),
+      clearAll: () => set({ datasets: [], activeDatasetId: null, selectedYear: null, selectedMonth: null }),
     }),
     {
-      name: "sales-bi-store",
+      name: "pulse-bi-store-v2",
       storage: createJSONStorage(() => {
         if (typeof window === "undefined") {
           return { getItem: () => null, setItem: () => {}, removeItem: () => {} };
@@ -69,8 +80,20 @@ export const useDataStore = create<DataState>()(
   ),
 );
 
-// Selector helpers
-export const useActiveDataset = (): Dataset | null => {
-  const { datasets, activeDatasetId } = useDataStore();
+// Helpers
+export const getActive = (): Dataset | null => {
+  const { datasets, activeDatasetId } = useDataStore.getState();
   return datasets.find((d) => d.id === activeDatasetId) ?? null;
 };
+
+// Filtrado de facturas por filtros activos
+export function filterInvoices(
+  invoices: Invoice[],
+  year: string | null,
+  month: string | null,
+): Invoice[] {
+  let r = invoices;
+  if (month) r = r.filter((i) => i.yearMonth === month);
+  else if (year) r = r.filter((i) => i.year === year);
+  return r;
+}
