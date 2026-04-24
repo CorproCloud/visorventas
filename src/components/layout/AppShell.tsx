@@ -38,7 +38,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             return (
               <Link
                 key={item.to}
-                to={item.to}
+                to={item.to as "/"}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
                   active
@@ -74,7 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           return (
             <Link
               key={item.to}
-              to={item.to}
+              to={item.to as "/"}
               className={cn(
                 "flex flex-col items-center gap-0.5 px-2 py-1.5 text-[10px]",
                 active ? "text-brand-red" : "text-sidebar-foreground/70",
