@@ -1,7 +1,7 @@
 import { Database, FileSpreadsheet, Trash2, CheckCircle2, Calendar } from "lucide-react";
 import { UploadDropzone } from "@/components/data/UploadDropzone";
 import { useDataStore } from "@/lib/store";
-import { fmtNumber } from "@/lib/format";
+import { fmtNumber, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export function DataPage() {
@@ -16,7 +16,7 @@ export function DataPage() {
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Gestión de Datos</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Carga, activa o elimina tus fuentes de datos. Procesamiento 100% en el navegador.
+          Carga, activa o elimina tus consecutivos de facturas. Procesamiento 100% en el navegador.
         </p>
       </header>
 
@@ -27,13 +27,14 @@ export function DataPage() {
             Cargar nuevo dataset
           </h2>
           <p className="text-xs text-muted-foreground mb-4">
-            Soporta Excel (.xlsx, .xls) con múltiples hojas (una por período/año) y CSV.
+            Soporta el reporte ERP "Consecutivo de Facturas Desglosado de Ventas" (.xls / .xlsx / .csv).
           </p>
           <UploadDropzone />
           <div className="mt-4 text-xs text-muted-foreground space-y-1">
-            <p className="font-medium text-foreground">Esquema esperado:</p>
-            <p>· Columnas: Clave · Descripción · Unidad · Unidades · Precio · Venta Neta · Costo · Margen %</p>
-            <p>· Hojas con nombre de año (2020, 2021...) se detectan como períodos.</p>
+            <p className="font-medium text-foreground">El parser detecta automáticamente:</p>
+            <p>· Encabezados de factura (fecha, folio, cliente, totales).</p>
+            <p>· Líneas de detalle (clave, descripción, cantidad, precio).</p>
+            <p>· Status, agente y moneda por factura.</p>
           </div>
         </section>
 
@@ -45,9 +46,7 @@ export function DataPage() {
             </h2>
             {datasets.length > 0 && (
               <button
-                onClick={() => {
-                  if (confirm("¿Eliminar TODOS los datasets?")) clearAll();
-                }}
+                onClick={() => { if (confirm("¿Eliminar TODOS los datasets?")) clearAll(); }}
                 className="text-xs text-brand-red hover:underline"
               >
                 Eliminar todos
@@ -64,19 +63,14 @@ export function DataPage() {
               {datasets.map((d) => {
                 const isActive = d.id === activeId;
                 return (
-                  <li
-                    key={d.id}
-                    className={cn(
-                      "rounded-xl border p-3 flex items-center gap-3 transition-colors",
-                      isActive ? "border-primary bg-primary/5" : "border-border bg-background hover:border-primary/30",
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "h-10 w-10 rounded-lg flex items-center justify-center shrink-0",
-                        isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
-                      )}
-                    >
+                  <li key={d.id} className={cn(
+                    "rounded-xl border p-3 flex items-center gap-3 transition-colors",
+                    isActive ? "border-primary bg-primary/5" : "border-border bg-background hover:border-primary/30",
+                  )}>
+                    <div className={cn(
+                      "h-10 w-10 rounded-lg flex items-center justify-center shrink-0",
+                      isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+                    )}>
                       <FileSpreadsheet className="h-5 w-5" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -88,27 +82,22 @@ export function DataPage() {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
-                        <span>{fmtNumber(d.rowCount)} filas</span>
+                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5 flex-wrap">
+                        <span>{fmtNumber(d.invoiceCount)} facturas · {fmtNumber(d.lineCount)} líneas</span>
                         <span className="inline-flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {d.periods.join(", ")}
+                          {fmtDate(d.dateRange.from)} → {fmtDate(d.dateRange.to)}
                         </span>
                       </div>
                     </div>
                     <div className="flex gap-1.5">
                       {!isActive && (
-                        <button
-                          onClick={() => setActive(d.id)}
-                          className="text-xs px-3 py-1.5 rounded-md bg-card border border-border hover:border-primary/40 transition-colors"
-                        >
+                        <button onClick={() => setActive(d.id)} className="text-xs px-3 py-1.5 rounded-md bg-card border border-border hover:border-primary/40 transition-colors">
                           Activar
                         </button>
                       )}
                       <button
-                        onClick={() => {
-                          if (confirm(`¿Eliminar "${d.name}"?`)) remove(d.id);
-                        }}
+                        onClick={() => { if (confirm(`¿Eliminar "${d.name}"?`)) remove(d.id); }}
                         className="p-1.5 rounded-md text-muted-foreground hover:text-brand-red hover:bg-brand-red/10 transition-colors"
                         aria-label="Eliminar"
                       >
