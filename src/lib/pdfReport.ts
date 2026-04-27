@@ -61,27 +61,83 @@ function buildAnalysis(p: ReportPayload): string[] {
     );
   }
 
-  if (p.topCustomers.length > 0) {
-    const top3 = p.topCustomers.slice(0, 3);
-    const top3Total = top3.reduce((a, c) => a + c.ventas, 0);
-    const concentration = p.revenue > 0 ? (top3Total / p.revenue) * 100 : 0;
-    paragraphs.push(
-      `Los tres clientes principales — ${top3.map((c) => c.fullName).join(", ")} — concentran el ${concentration.toFixed(1)}% ` +
-      `de la facturación total. Esta concentración debe monitorearse: si supera el 50%, conviene diversificar la cartera ` +
-      `para reducir el riesgo comercial.`,
-    );
-  }
-
-  if (p.categories.length > 0) {
-    const topCat = p.categories[0];
-    const catPct = p.subtotal > 0 ? (topCat.value / p.subtotal) * 100 : 0;
-    paragraphs.push(
-      `Por mix de productos, la categoría líder es "${topCat.name}" con ${fmtMoney(topCat.value, true)} (${catPct.toFixed(1)}% del subtotal). ` +
-      `El catálogo activo cuenta con ${p.categories.length} categorías representativas en el período.`,
-    );
-  }
-
   return paragraphs;
+}
+
+// =====================
+// Análisis por gráfica
+// =====================
+function analyzeTrend(p: ReportPayload): string {
+  const t = p.trend;
+  if (t.length === 0) return "No hay suficientes datos en el rango seleccionado para construir una tendencia mensual.";
+  if (t.length === 1) {
+    return `El rango analizado contiene un único período (${t[0].period}) con ${fmtMoney(t[0].ventas, true)} en ventas y ${fmtNumber(t[0].facturas)} facturas. ` +
+      `Para identificar tendencias, recomendamos ampliar el rango de fechas a varios meses.`;
+  }
+  const max = t.reduce((a, b) => (b.ventas > a.ventas ? b : a));
+  const min = t.reduce((a, b) => (b.ventas < a.ventas ? b : a));
+  const first = t[0];
+  const last = t[t.length - 1];
+  const growth = first.ventas > 0 ? ((last.ventas - first.ventas) / first.ventas) * 100 : NaN;
+  const dirText = isFinite(growth)
+    ? growth >= 0
+      ? `un crecimiento acumulado del ${growth.toFixed(1)}%`
+      : `una contracción del ${Math.abs(growth).toFixed(1)}%`
+    : "una variación no comparable";
+
+  return `La evolución mensual abarca ${t.length} períodos. El mes con mayor facturación fue ${max.period} con ` +
+    `${fmtMoney(max.ventas, true)}, mientras que el de menor desempeño fue ${min.period} con ${fmtMoney(min.ventas, true)}. ` +
+    `Comparando el primer (${first.period}) y último período (${last.period}) del rango, se observa ${dirText}. ` +
+    `Este comportamiento sugiere ${
+      isFinite(growth) && growth >= 5
+        ? "una dinámica comercial favorable que conviene reforzar"
+        : isFinite(growth) && growth <= -5
+        ? "la necesidad de revisar estrategias comerciales y de retención"
+        : "estabilidad operativa en el período evaluado"
+    }.`;
+}
+
+function analyzeCategories(p: ReportPayload): string {
+  if (p.categories.length === 0) return "No se registró actividad por categoría en el rango seleccionado.";
+  const total = p.categories.reduce((a, c) => a + c.value, 0);
+  const top = p.categories[0];
+  const topPct = total > 0 ? (top.value / total) * 100 : 0;
+  const top3 = p.categories.slice(0, 3);
+  const top3Pct = total > 0 ? (top3.reduce((a, c) => a + c.value, 0) / total) * 100 : 0;
+
+  let concentrationNote = "";
+  if (topPct >= 50) {
+    concentrationNote = `La categoría líder concentra más de la mitad del mix, lo que indica una alta dependencia. Diversificar el portafolio reduciría el riesgo comercial.`;
+  } else if (top3Pct >= 75) {
+    concentrationNote = `Las tres principales categorías representan ${top3Pct.toFixed(1)}% del mix, mostrando una concentración moderada-alta típica de un portafolio especializado.`;
+  } else {
+    concentrationNote = `El mix se encuentra razonablemente diversificado entre ${p.categories.length} categorías activas, lo que aporta resiliencia comercial.`;
+  }
+
+  return `La categoría más relevante del período es "${top.name}" con ${fmtMoney(top.value, true)} ` +
+    `(${topPct.toFixed(1)}% del subtotal). ${concentrationNote}`;
+}
+
+function analyzeTopCustomers(p: ReportPayload): string {
+  if (p.topCustomers.length === 0) return "No hay clientes con actividad en el rango seleccionado.";
+  const top1 = p.topCustomers[0];
+  const total = p.revenue;
+  const top1Pct = total > 0 ? (top1.ventas / total) * 100 : 0;
+  const top3 = p.topCustomers.slice(0, 3);
+  const top3Pct = total > 0 ? (top3.reduce((a, c) => a + c.ventas, 0) / total) * 100 : 0;
+  const top10Pct = total > 0 ? (p.topCustomers.reduce((a, c) => a + c.ventas, 0) / total) * 100 : 0;
+
+  let risk = "";
+  if (top1Pct >= 30) {
+    risk = `El cliente principal representa ${top1Pct.toFixed(1)}% de los ingresos, una concentración crítica que conviene mitigar mediante diversificación.`;
+  } else if (top3Pct >= 50) {
+    risk = `Los tres principales clientes acumulan ${top3Pct.toFixed(1)}% de los ingresos; conviene blindar la relación con cuentas estratégicas.`;
+  } else {
+    risk = `La cartera muestra una distribución sana, sin dependencia crítica de cuentas individuales.`;
+  }
+
+  return `El ranking lo encabeza ${top1.fullName} con ${fmtMoney(top1.ventas, true)} (${top1Pct.toFixed(1)}% del total). ` +
+    `Los 10 clientes principales suman ${top10Pct.toFixed(1)}% de la facturación del período. ${risk}`;
 }
 
 async function captureNode(id: string): Promise<string | null> {
@@ -99,6 +155,25 @@ async function captureNode(id: string): Promise<string | null> {
     console.error("PDF capture failed for", id, e);
     return null;
   }
+}
+
+function ensureSpace(doc: jsPDF, y: number, needed: number, margin: number): number {
+  const pageH = doc.internal.pageSize.getHeight();
+  if (y + needed > pageH - margin - 20) {
+    doc.addPage();
+    return margin;
+  }
+  return y;
+}
+
+function drawParagraph(doc: jsPDF, text: string, x: number, y: number, width: number, margin: number): number {
+  doc.setTextColor(40, 40, 50);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  const lines = doc.splitTextToSize(text, width);
+  y = ensureSpace(doc, y, lines.length * 13, margin);
+  doc.text(lines, x, y);
+  return y + lines.length * 13 + 6;
 }
 
 export async function generateReportPDF(payload: ReportPayload): Promise<void> {
@@ -171,59 +246,64 @@ export async function generateReportPDF(payload: ReportPayload): Promise<void> {
   });
   y += rowH * 2 + 8 + 20;
 
-  // ===== Análisis =====
+  // ===== Análisis ejecutivo =====
   doc.setTextColor(...NAVY);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
   doc.text("Análisis ejecutivo", margin, y);
   y += 16;
 
-  doc.setTextColor(40, 40, 50);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
   const analysis = buildAnalysis(payload);
   for (const p of analysis) {
-    const lines = doc.splitTextToSize(p, pageW - margin * 2);
-    if (y + lines.length * 13 > pageH - margin) {
-      doc.addPage();
-      y = margin;
-    }
-    doc.text(lines, margin, y);
-    y += lines.length * 13 + 8;
+    y = drawParagraph(doc, p, margin, y, pageW - margin * 2, margin);
+    y += 2;
   }
 
-  // ===== Capturar gráficas =====
-  const chartIds = [
-    { id: "pdf-chart-trend", title: "Tendencia mensual" },
-    { id: "pdf-chart-categories", title: "Mix de categorías" },
-    { id: "pdf-chart-top", title: "Top clientes" },
+  // ===== Capturar gráficas con análisis individual =====
+  const chartSections: { id: string; title: string; analysis: string }[] = [
+    { id: "pdf-chart-trend", title: "Tendencia mensual", analysis: analyzeTrend(payload) },
+    { id: "pdf-chart-categories", title: "Mix de categorías", analysis: analyzeCategories(payload) },
+    { id: "pdf-chart-top", title: "Top clientes", analysis: analyzeTopCustomers(payload) },
   ];
 
-  for (const { id, title } of chartIds) {
+  for (const { id, title, analysis: chartAnalysis } of chartSections) {
     const dataUrl = await captureNode(id);
     if (!dataUrl) continue;
     const imgProps = doc.getImageProperties(dataUrl);
     const w = pageW - margin * 2;
     const h = (imgProps.height * w) / imgProps.width;
-    if (y + h + 30 > pageH - margin) {
-      doc.addPage();
-      y = margin;
-    }
+
+    y = ensureSpace(doc, y, h + 60, margin);
+
     doc.setTextColor(...NAVY);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
     doc.text(title, margin, y);
-    y += 12;
+    y += 4;
+    doc.setDrawColor(...RED);
+    doc.setLineWidth(1.5);
+    doc.line(margin, y, margin + 36, y);
+    y += 10;
+
     doc.addImage(dataUrl, "PNG", margin, y, w, h);
-    y += h + 18;
+    y += h + 10;
+
+    // Párrafo explicativo dinámico bajo la gráfica
+    doc.setFillColor(248, 249, 252);
+    const linesAna = doc.splitTextToSize(chartAnalysis, pageW - margin * 2 - 16);
+    const boxH = linesAna.length * 12 + 16;
+    y = ensureSpace(doc, y, boxH + 12, margin);
+    doc.roundedRect(margin, y, pageW - margin * 2, boxH, 6, 6, "F");
+    doc.setTextColor(40, 40, 50);
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9.5);
+    doc.text(linesAna, margin + 8, y + 12);
+    y += boxH + 16;
   }
 
   // ===== Tabla Top clientes =====
   if (payload.topCustomers.length > 0) {
-    if (y + 120 > pageH - margin) {
-      doc.addPage();
-      y = margin;
-    }
+    y = ensureSpace(doc, y, 140, margin);
     doc.setTextColor(...NAVY);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
@@ -244,6 +324,7 @@ export async function generateReportPDF(payload: ReportPayload): Promise<void> {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     payload.topCustomers.slice(0, 10).forEach((c, i) => {
+      y = ensureSpace(doc, y, 16, margin);
       if (i % 2 === 0) {
         doc.setFillColor(248, 249, 252);
         doc.rect(margin, y, pageW - margin * 2, 16, "F");
@@ -270,7 +351,8 @@ export async function generateReportPDF(payload: ReportPayload): Promise<void> {
     doc.text(`Página ${i} de ${total}`, pageW - margin, pageH - 14, { align: "right" });
   }
 
-  const filename = `reporte-ventas-${payload.periodLabel.replace(/\s+/g, "_")}.pdf`;
+  const safeLabel = payload.periodLabel.replace(/[^\w\-]+/g, "_");
+  const filename = `reporte-ventas-${safeLabel}.pdf`;
   doc.save(filename);
 }
 
