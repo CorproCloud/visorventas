@@ -33,9 +33,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               to="/"
               className="flex items-center gap-3 shrink-0 group"
             >
-              <div className="h-10 w-10 rounded-lg bg-brand-red/5 ring-1 ring-brand-red/15 flex items-center justify-center group-hover:ring-brand-red/30 transition-all">
-                <img src={logo} alt="Logo" className="h-7 w-7 object-contain" />
-              </div>
+              <img
+                src={logo}
+                alt="Visor de Ventas"
+                className="h-9 w-9 object-contain transition-transform group-hover:scale-105"
+              />
               <div className="hidden sm:block leading-tight">
                 <div className="text-[15px] font-bold tracking-tight text-foreground">
                   Visor de Ventas

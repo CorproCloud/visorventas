@@ -1,19 +1,46 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  BarChart, Bar, PieChart, Pie, Cell, Legend,
+  BarChart, Bar, PieChart, Pie, Cell, Legend, LineChart, Line,
 } from "recharts";
-import { DollarSign, Percent, ShoppingCart, Users, Database, Package, FileText } from "lucide-react";
+import {
+  DollarSign, Percent, ShoppingCart, Users, Database, Package, FileText,
+  FileDown, Settings2, Loader2,
+} from "lucide-react";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { PeriodSelector } from "@/components/layout/PeriodSelector";
 import { useDataStore, filterInvoices } from "@/lib/store";
 import { fmtMoney, fmtNumber, fmtPct, fmtMonth, safeId } from "@/lib/format";
+import { generateReportPDF } from "@/lib/pdfReport";
+import { cn } from "@/lib/utils";
+
+// Paleta amplia, sin repeticiones (15 tonos)
+const CATEGORY_PALETTE = [
+  "#1E40AF", "#059669", "#DC2626", "#D97706", "#7C3AED",
+  "#0891B2", "#DB2777", "#65A30D", "#EA580C", "#4338CA",
+  "#0D9488", "#9333EA", "#CA8A04", "#BE123C", "#0369A1",
+];
+
+type TrendMetric = "ventas" | "facturas" | "ticket" | "clientes" | "saldo";
+type TrendChartType = "area" | "bar" | "line";
+
+const METRIC_OPTIONS: { key: TrendMetric; label: string; format: (v: number) => string }[] = [
+  { key: "ventas", label: "Ventas totales", format: (v) => fmtMoney(v, true) },
+  { key: "facturas", label: "Núm. facturas", format: (v) => fmtNumber(v) },
+  { key: "ticket", label: "Ticket medio", format: (v) => fmtMoney(v) },
+  { key: "clientes", label: "Clientes únicos", format: (v) => fmtNumber(v) },
+  { key: "saldo", label: "Saldo por cobrar", format: (v) => fmtMoney(v, true) },
+];
 
 export function DashboardPage() {
   const ds = useDataStore((s) => s.datasets.find((d) => d.id === s.activeDatasetId) ?? null);
   const year = useDataStore((s) => s.selectedYear);
   const month = useDataStore((s) => s.selectedMonth);
+
+  const [trendMetric, setTrendMetric] = useState<TrendMetric>("ventas");
+  const [trendChart, setTrendChart] = useState<TrendChartType>("area");
+  const [generating, setGenerating] = useState(false);
 
   const data = useMemo(() => {
     if (!ds) return null;
@@ -29,7 +56,6 @@ export function DashboardPage() {
     const customerCount = customerSet.size;
     const recurrencia = customerCount > 0 ? invCount / customerCount : 0;
 
-    // Período anterior comparable
     const prevPeriod = month
       ? prevMonthOf(month, ds.months)
       : year
@@ -46,18 +72,26 @@ export function DashboardPage() {
     const ticketDelta = prevTicket > 0 ? ((avgTicket - prevTicket) / prevTicket) * 100 : NaN;
     const customersDelta = prevCustomers > 0 ? ((customerCount - prevCustomers) / prevCustomers) * 100 : NaN;
 
-    // Tendencia mensual
+    // Tendencia mensual con TODAS las métricas
     const trend = ds.months.map((m) => {
       const r = all.filter((i) => i.yearMonth === m);
+      const ventas = r.reduce((a, i) => a + i.total, 0);
+      const saldo = r.reduce((a, i) => a + i.balance, 0);
+      const facturas = r.length;
+      const ticket = facturas > 0 ? ventas / facturas : 0;
+      const clientes = new Set(r.map((i) => i.customerName)).size;
       return {
         period: fmtMonth(m),
         ym: m,
-        ventas: Math.round(r.reduce((a, i) => a + i.total, 0)),
-        facturas: r.length,
+        ventas: Math.round(ventas),
+        facturas,
+        ticket: Math.round(ticket),
+        clientes,
+        saldo: Math.round(saldo),
       };
     });
 
-    // Top 10 clientes del período
+    // Top 10 clientes
     const custMap = new Map<string, { name: string; revenue: number; invoices: number }>();
     for (const i of current) {
       const k = i.customerName;
@@ -75,7 +109,7 @@ export function DashboardPage() {
         ventas: Math.round(c.revenue),
       }));
 
-    // Distribución por categoría (líneas)
+    // Categorías
     const catMap = new Map<string, number>();
     for (const i of current) {
       for (const ln of i.lines) {
@@ -84,8 +118,7 @@ export function DashboardPage() {
       }
     }
     const categories = Array.from(catMap, ([name, value]) => ({ name, value: Math.round(value) }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 7);
+      .sort((a, b) => b.value - a.value);
 
     return {
       revenue, subtotal, balance, invCount, avgTicket, customerCount, recurrencia,
@@ -97,6 +130,38 @@ export function DashboardPage() {
   if (!ds) return <EmptyState />;
 
   const periodLabel = month ? fmtMonth(month) : year ?? "Todos los períodos";
+  const metricCfg = METRIC_OPTIONS.find((m) => m.key === trendMetric)!;
+
+  // Ancho dinámico para scroll horizontal: 60px por mes mín 100% del contenedor
+  const trendMinWidth = Math.max(data!.trend.length * 60, 600);
+
+  const handleGeneratePDF = async () => {
+    if (!data) return;
+    setGenerating(true);
+    try {
+      // Pequeña espera para asegurar render
+      await new Promise((r) => setTimeout(r, 100));
+      await generateReportPDF({
+        periodLabel,
+        invCount: data.invCount,
+        revenue: data.revenue,
+        subtotal: data.subtotal,
+        taxes: data.taxes,
+        balance: data.balance,
+        avgTicket: data.avgTicket,
+        customerCount: data.customerCount,
+        recurrencia: data.recurrencia,
+        revDelta: data.revDelta,
+        ticketDelta: data.ticketDelta,
+        customersDelta: data.customersDelta,
+        topCustomers: data.topCustomers,
+        categories: data.categories.slice(0, 10),
+        trend: data.trend,
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   return (
     <div className="px-4 sm:px-8 py-6 sm:py-8 max-w-[1500px] mx-auto">
@@ -104,10 +169,23 @@ export function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard de Ventas</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {ds.name} · {periodLabel} · {fmtNumber(data!.invCount)} facturas
+            {periodLabel} · {fmtNumber(data!.invCount)} facturas
           </p>
         </div>
-        <PeriodSelector />
+        <div className="flex items-center gap-2 flex-wrap">
+          <PeriodSelector />
+          <button
+            onClick={handleGeneratePDF}
+            disabled={generating}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-red text-brand-red-foreground px-4 py-2 text-sm font-semibold shadow-[var(--shadow-sm)] hover:opacity-90 disabled:opacity-60 transition-opacity"
+          >
+            {generating ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Generando...</>
+            ) : (
+              <><FileDown className="h-4 w-4" /> Generar Reporte PDF</>
+            )}
+          </button>
+        </div>
       </header>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -144,43 +222,123 @@ export function DashboardPage() {
         />
       </div>
 
-      <div className="mt-6 grid lg:grid-cols-3 gap-4">
-        <ChartCard title="Tendencia mensual" subtitle="Facturación por mes" className="lg:col-span-2">
-          <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={data!.trend} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.5} />
-                  <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="period" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false}
-                tickFormatter={(v) => fmtNumber(v, true)} />
-              <Tooltip
-                contentStyle={tooltipStyle}
-                formatter={((v: unknown) => fmtMoney(Number(v))) as never}
-                cursor={{ fill: "var(--muted)" }}
-              />
-              <Area type="monotone" dataKey="ventas" stroke="var(--chart-1)" strokeWidth={2.5} fill="url(#g1)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </ChartCard>
+      {/* TENDENCIA — full width con scroll horizontal y métrica configurable */}
+      <div className="mt-6">
+        <div id="pdf-chart-trend" className="rounded-2xl bg-card border border-border p-5">
+          <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Settings2 className="h-4 w-4 text-muted-foreground" />
+                Tendencia mensual — {metricCfg.label}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {data!.trend.length} períodos · desplaza horizontalmente para ver historial completo
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Selector de métrica */}
+              <div className="inline-flex rounded-md border border-border bg-background p-0.5">
+                {METRIC_OPTIONS.map((m) => (
+                  <button
+                    key={m.key}
+                    onClick={() => setTrendMetric(m.key)}
+                    className={cn(
+                      "px-2.5 py-1 text-[11px] font-medium rounded transition-colors",
+                      trendMetric === m.key
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              {/* Selector de tipo */}
+              <div className="inline-flex rounded-md border border-border bg-background p-0.5">
+                {(["area", "bar", "line"] as TrendChartType[]).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTrendChart(t)}
+                    className={cn(
+                      "px-2.5 py-1 text-[11px] font-medium rounded capitalize transition-colors",
+                      trendChart === t
+                        ? "bg-foreground text-background"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
 
-        <ChartCard title="Mix de categorías" subtitle={periodLabel}>
-          <ResponsiveContainer width="100%" height={280}>
+          <div className="overflow-x-auto pb-2 -mx-1 px-1">
+            <div style={{ minWidth: trendMinWidth, height: 320 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                {trendChart === "area" ? (
+                  <AreaChart data={data!.trend} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="grad-trend" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.55} />
+                        <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="period" stroke="var(--muted-foreground)" fontSize={11}
+                      tickLine={false} axisLine={false} interval={0} angle={-25} textAnchor="end" height={50} />
+                    <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false}
+                      tickFormatter={(v) => fmtNumber(v, true)} />
+                    <Tooltip contentStyle={tooltipStyle}
+                      formatter={((v: unknown) => metricCfg.format(Number(v))) as never}
+                      cursor={{ fill: "var(--muted)" }} />
+                    <Area type="monotone" dataKey={trendMetric} stroke="var(--chart-1)" strokeWidth={2.5} fill="url(#grad-trend)" />
+                  </AreaChart>
+                ) : trendChart === "bar" ? (
+                  <BarChart data={data!.trend} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                    <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="period" stroke="var(--muted-foreground)" fontSize={11}
+                      tickLine={false} axisLine={false} interval={0} angle={-25} textAnchor="end" height={50} />
+                    <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false}
+                      tickFormatter={(v) => fmtNumber(v, true)} />
+                    <Tooltip contentStyle={tooltipStyle}
+                      formatter={((v: unknown) => metricCfg.format(Number(v))) as never}
+                      cursor={{ fill: "var(--muted)" }} />
+                    <Bar dataKey={trendMetric} fill="var(--chart-1)" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                ) : (
+                  <LineChart data={data!.trend} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                    <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="period" stroke="var(--muted-foreground)" fontSize={11}
+                      tickLine={false} axisLine={false} interval={0} angle={-25} textAnchor="end" height={50} />
+                    <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false}
+                      tickFormatter={(v) => fmtNumber(v, true)} />
+                    <Tooltip contentStyle={tooltipStyle}
+                      formatter={((v: unknown) => metricCfg.format(Number(v))) as never} />
+                    <Line type="monotone" dataKey={trendMetric} stroke="var(--chart-1)" strokeWidth={2.5}
+                      dot={{ r: 3, fill: "var(--chart-1)" }} activeDot={{ r: 5 }} />
+                  </LineChart>
+                )}
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid lg:grid-cols-2 gap-4">
+        <ChartCard id="pdf-chart-categories" title="Mix de categorías" subtitle={periodLabel}>
+          <ResponsiveContainer width="100%" height={320}>
             <PieChart>
               <Pie
-                data={data!.categories}
+                data={data!.categories.slice(0, 12)}
                 dataKey="value"
                 nameKey="name"
-                innerRadius={55}
-                outerRadius={95}
+                innerRadius={60}
+                outerRadius={110}
                 paddingAngle={2}
               >
-                {data!.categories.map((_, i) => (
-                  <Cell key={i} fill={`var(--chart-${(i % 5) + 1})`} />
+                {data!.categories.slice(0, 12).map((_, i) => (
+                  <Cell key={i} fill={CATEGORY_PALETTE[i % CATEGORY_PALETTE.length]} />
                 ))}
               </Pie>
               <Tooltip contentStyle={tooltipStyle} formatter={((v: unknown) => fmtMoney(Number(v), true)) as never} />
@@ -188,11 +346,9 @@ export function DashboardPage() {
             </PieChart>
           </ResponsiveContainer>
         </ChartCard>
-      </div>
 
-      <div className="mt-4 grid lg:grid-cols-2 gap-4">
-        <ChartCard title="Top 10 clientes" subtitle="Por facturación en el período">
-          <ResponsiveContainer width="100%" height={340}>
+        <ChartCard id="pdf-chart-top" title="Top 10 clientes" subtitle="Por facturación en el período">
+          <ResponsiveContainer width="100%" height={320}>
             <BarChart data={data!.topCustomers} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
               <XAxis type="number" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false}
@@ -204,21 +360,8 @@ export function DashboardPage() {
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
-
-        <ChartCard title="Facturas por mes" subtitle="Volumen transaccional">
-          <ResponsiveContainer width="100%" height={340}>
-            <BarChart data={data!.trend} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="period" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--muted)" }} />
-              <Bar dataKey="facturas" fill="var(--chart-3)" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
       </div>
 
-      {/* Quick links to top customers */}
       {data!.topCustomers.length > 0 && (
         <section className="mt-6 rounded-2xl bg-card border border-border p-5">
           <div className="flex items-center justify-between mb-3">
@@ -273,11 +416,11 @@ const tooltipStyle = {
   boxShadow: "var(--shadow-md)",
 };
 
-function ChartCard({ title, subtitle, children, className = "" }: {
-  title: string; subtitle?: string; children: React.ReactNode; className?: string;
+function ChartCard({ title, subtitle, children, className = "", id }: {
+  title: string; subtitle?: string; children: React.ReactNode; className?: string; id?: string;
 }) {
   return (
-    <div className={`rounded-2xl bg-card border border-border p-5 ${className}`}>
+    <div id={id} className={`rounded-2xl bg-card border border-border p-5 ${className}`}>
       <div className="flex items-baseline justify-between mb-3">
         <div>
           <h3 className="text-sm font-semibold text-foreground">{title}</h3>
