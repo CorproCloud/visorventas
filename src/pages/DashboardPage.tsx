@@ -335,7 +335,7 @@ export function DashboardPage() {
       </div>
 
       <div className="mt-4 grid lg:grid-cols-2 gap-4">
-        <ChartCard id="pdf-chart-categories" title="Mix de categorías" subtitle={periodLabel}>
+        <ChartCard id="pdf-chart-categories" title="Categorias" subtitle={periodLabel}>
           <ResponsiveContainer width="100%" height={320}>
             <PieChart>
               <Pie
