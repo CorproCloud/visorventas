@@ -139,27 +139,44 @@ export function DashboardPage() {
   const trendMinWidth = Math.max(data!.trend.length * 60, 600);
 
   const handleGeneratePDF = async () => {
-    if (!data) return;
+    if (!ds) return;
     setGenerating(true);
     try {
-      // Pequeña espera para asegurar render
+      // Determinar facturas según rango de fechas (si está definido) o filtros activos
+      const usingRange = Boolean(reportFrom && reportTo);
+      let invoicesForReport: Invoice[];
+      let label: string;
+
+      if (usingRange) {
+        const from = reportFrom;
+        const to = reportTo;
+        invoicesForReport = ds.invoices.filter((i) => i.date >= from && i.date <= to);
+        label = `${fmtDate(from)} — ${fmtDate(to)}`;
+      } else {
+        invoicesForReport = filterInvoices(ds.invoices, year, month);
+        label = periodLabel;
+      }
+
+      const reportData = computeReportSnapshot(ds.invoices, invoicesForReport, year, month, usingRange, reportFrom);
+
+      // Pequeña espera para asegurar render de gráficas
       await new Promise((r) => setTimeout(r, 100));
       await generateReportPDF({
-        periodLabel,
-        invCount: data.invCount,
-        revenue: data.revenue,
-        subtotal: data.subtotal,
-        taxes: data.taxes,
-        balance: data.balance,
-        avgTicket: data.avgTicket,
-        customerCount: data.customerCount,
-        recurrencia: data.recurrencia,
-        revDelta: data.revDelta,
-        ticketDelta: data.ticketDelta,
-        customersDelta: data.customersDelta,
-        topCustomers: data.topCustomers,
-        categories: data.categories.slice(0, 10),
-        trend: data.trend,
+        periodLabel: label,
+        invCount: reportData.invCount,
+        revenue: reportData.revenue,
+        subtotal: reportData.subtotal,
+        taxes: reportData.taxes,
+        balance: reportData.balance,
+        avgTicket: reportData.avgTicket,
+        customerCount: reportData.customerCount,
+        recurrencia: reportData.recurrencia,
+        revDelta: reportData.revDelta,
+        ticketDelta: reportData.ticketDelta,
+        customersDelta: reportData.customersDelta,
+        topCustomers: reportData.topCustomers,
+        categories: reportData.categories.slice(0, 10),
+        trend: reportData.trend,
       });
     } finally {
       setGenerating(false);
@@ -177,17 +194,6 @@ export function DashboardPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <PeriodSelector />
-          <button
-            onClick={handleGeneratePDF}
-            disabled={generating}
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-red text-brand-red-foreground px-4 py-2 text-sm font-semibold shadow-[var(--shadow-sm)] hover:opacity-90 disabled:opacity-60 transition-opacity"
-          >
-            {generating ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Generando...</>
-            ) : (
-              <><FileDown className="h-4 w-4" /> Generar Reporte PDF</>
-            )}
-          </button>
         </div>
       </header>
 
