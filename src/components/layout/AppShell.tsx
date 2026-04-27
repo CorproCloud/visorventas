@@ -26,23 +26,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       {/* Banner corporativo + navegación superior */}
       <header className="sticky top-0 z-40 bg-card border-b border-border shadow-[var(--shadow-sm)]">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-16 gap-6">
+        <div className="px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center h-16 gap-3 sm:gap-6">
             {/* Brand */}
             <Link
               to="/"
-              className="flex items-center gap-3 shrink-0 group"
+              className="flex items-center gap-2.5 sm:gap-3 shrink-0 group min-w-0"
             >
               <img
                 src={logo}
                 alt="Visor de Ventas"
-                className="h-9 w-9 object-contain transition-transform group-hover:scale-105"
+                className="h-9 w-9 object-contain transition-transform group-hover:scale-105 shrink-0"
               />
-              <div className="hidden sm:block leading-tight">
-                <div className="text-[15px] font-bold tracking-tight text-foreground">
+              <div className="leading-tight min-w-0">
+                <div className="text-[14px] sm:text-[15px] font-bold tracking-tight text-foreground truncate">
                   Visor de Ventas
                 </div>
-                <div className="text-[11px] text-muted-foreground">
+                <div className="hidden sm:block text-[11px] text-muted-foreground truncate">
                   Visualizador del Historial de ventas.
                 </div>
               </div>

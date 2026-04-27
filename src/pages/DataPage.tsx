@@ -111,6 +111,12 @@ export function DataPage() {
           )}
         </section>
       </div>
+
+      <footer className="mt-10 pt-6 border-t border-border text-center">
+        <p className="text-[11px] text-muted-foreground/80 italic">
+          Generado con <span className="font-medium text-foreground/80">Visor de Ventas</span>. Desarrollado por Miguel M. Navarro.
+        </p>
+      </footer>
     </div>
   );
 }
