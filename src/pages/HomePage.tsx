@@ -164,8 +164,7 @@ export function HomePage() {
           </label>
           {active && (
             <div className="text-xs text-muted-foreground ml-auto">
-              <span className="font-medium text-foreground">{active.name}</span>
-              {" · "}{fmtNumber(active.invoiceCount)} facturas
+              {fmtNumber(active.invoiceCount)} facturas
               {" · "}{fmtDate(active.dateRange.from)} → {fmtDate(active.dateRange.to)}
             </div>
           )}
