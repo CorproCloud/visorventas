@@ -244,15 +244,15 @@ export function DashboardPage() {
                 {data!.trend.length} períodos · desplaza horizontalmente para ver historial completo
               </p>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
               {/* Selector de métrica */}
-              <div className="inline-flex rounded-md border border-border bg-background p-0.5">
+              <div className="inline-flex rounded-md border border-border bg-background p-0.5 overflow-x-auto max-w-full">
                 {METRIC_OPTIONS.map((m) => (
                   <button
                     key={m.key}
                     onClick={() => setTrendMetric(m.key)}
                     className={cn(
-                      "px-2.5 py-1 text-[11px] font-medium rounded transition-colors",
+                      "px-2.5 py-1 text-[11px] font-medium rounded transition-colors whitespace-nowrap",
                       trendMetric === m.key
                         ? "bg-primary text-primary-foreground"
                         : "text-muted-foreground hover:text-foreground",
@@ -269,7 +269,7 @@ export function DashboardPage() {
                     key={t}
                     onClick={() => setTrendChart(t)}
                     className={cn(
-                      "px-2.5 py-1 text-[11px] font-medium rounded capitalize transition-colors",
+                      "px-2.5 py-1 text-[11px] font-medium rounded capitalize transition-colors whitespace-nowrap",
                       trendChart === t
                         ? "bg-foreground text-background"
                         : "text-muted-foreground hover:text-foreground",
