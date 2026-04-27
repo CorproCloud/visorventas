@@ -42,6 +42,8 @@ export function DashboardPage() {
   const [trendMetric, setTrendMetric] = useState<TrendMetric>("ventas");
   const [trendChart, setTrendChart] = useState<TrendChartType>("area");
   const [generating, setGenerating] = useState(false);
+  const [reportFrom, setReportFrom] = useState<string>("");
+  const [reportTo, setReportTo] = useState<string>("");
 
   const data = useMemo(() => {
     if (!ds) return null;
