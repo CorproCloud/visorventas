@@ -39,6 +39,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className="h-9 w-9 object-contain transition-transform group-hover:scale-105 shrink-0"
               />
               <div className="leading-tight min-w-0">
+                <div className="text-[14px] sm:text-[15px] font-bold tracking-tight text-foreground truncate">
+                  Visor Ventas
+                </div>
                 <div className="hidden sm:block text-[11px] text-muted-foreground truncate">
                   Visualizador del Historial de ventas.
                 </div>
