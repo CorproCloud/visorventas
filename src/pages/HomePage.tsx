@@ -260,7 +260,7 @@ export function HomePage() {
           <span className="text-[11px] uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1.5">
             <Database className="h-3 w-3" /> Datasets
           </span>
-          {datasets.map((d) => (
+          {datasets.map((d, i) => (
             <button
               key={d.id}
               onClick={() => setActive(d.id)}
@@ -271,7 +271,7 @@ export function HomePage() {
                   : "bg-card border-border hover:border-primary/40",
               )}
             >
-              {d.name}
+              Dataset {i + 1}
             </button>
           ))}
         </div>
