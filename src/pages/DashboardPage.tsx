@@ -275,7 +275,7 @@ export function DashboardPage() {
                         : "text-muted-foreground hover:text-foreground",
                     )}
                   >
-                    {t}
+                    {t === "bar" ? "Barras" : t === "line" ? "Lineas" : "Area"}
                   </button>
                 ))}
               </div>
@@ -412,7 +412,7 @@ export function DashboardPage() {
             <FileDown className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="text-base font-bold tracking-tight">Generar Reporte Ejecutivo PDF</h3>
+            <h3 className="text-base font-bold tracking-tight">Generar Reporte</h3>
             <p className="text-sm text-muted-foreground mt-0.5 max-w-2xl">
               Selecciona un rango de fechas para acotar el análisis. El reporte incluirá KPIs, gráficas
               y párrafos explicativos automáticos para cada visualización. Si dejas las fechas en blanco,
