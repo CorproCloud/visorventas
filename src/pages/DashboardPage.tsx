@@ -104,7 +104,7 @@ export function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard de Ventas</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {ds.name} · {periodLabel} · {fmtNumber(data!.invCount)} facturas
+            {periodLabel} · {fmtNumber(data!.invCount)} facturas
           </p>
         </div>
         <PeriodSelector />
