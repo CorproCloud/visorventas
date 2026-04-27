@@ -6,14 +6,15 @@ import {
 } from "recharts";
 import {
   DollarSign, Percent, ShoppingCart, Users, Database, Package, FileText,
-  FileDown, Settings2, Loader2,
+  FileDown, Settings2, Loader2, CalendarRange,
 } from "lucide-react";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { PeriodSelector } from "@/components/layout/PeriodSelector";
 import { useDataStore, filterInvoices } from "@/lib/store";
-import { fmtMoney, fmtNumber, fmtPct, fmtMonth, safeId } from "@/lib/format";
+import { fmtMoney, fmtNumber, fmtPct, fmtMonth, fmtDate, safeId } from "@/lib/format";
 import { generateReportPDF } from "@/lib/pdfReport";
 import { cn } from "@/lib/utils";
+import type { Invoice } from "@/lib/types";
 
 // Paleta amplia, sin repeticiones (15 tonos)
 const CATEGORY_PALETTE = [
@@ -41,6 +42,8 @@ export function DashboardPage() {
   const [trendMetric, setTrendMetric] = useState<TrendMetric>("ventas");
   const [trendChart, setTrendChart] = useState<TrendChartType>("area");
   const [generating, setGenerating] = useState(false);
+  const [reportFrom, setReportFrom] = useState<string>("");
+  const [reportTo, setReportTo] = useState<string>("");
 
   const data = useMemo(() => {
     if (!ds) return null;
@@ -136,27 +139,44 @@ export function DashboardPage() {
   const trendMinWidth = Math.max(data!.trend.length * 60, 600);
 
   const handleGeneratePDF = async () => {
-    if (!data) return;
+    if (!ds) return;
     setGenerating(true);
     try {
-      // Pequeña espera para asegurar render
+      // Determinar facturas según rango de fechas (si está definido) o filtros activos
+      const usingRange = Boolean(reportFrom && reportTo);
+      let invoicesForReport: Invoice[];
+      let label: string;
+
+      if (usingRange) {
+        const from = reportFrom;
+        const to = reportTo;
+        invoicesForReport = ds.invoices.filter((i) => i.date >= from && i.date <= to);
+        label = `${fmtDate(from)} — ${fmtDate(to)}`;
+      } else {
+        invoicesForReport = filterInvoices(ds.invoices, year, month);
+        label = periodLabel;
+      }
+
+      const reportData = computeReportSnapshot(ds.invoices, invoicesForReport, year, month, usingRange, reportFrom);
+
+      // Pequeña espera para asegurar render de gráficas
       await new Promise((r) => setTimeout(r, 100));
       await generateReportPDF({
-        periodLabel,
-        invCount: data.invCount,
-        revenue: data.revenue,
-        subtotal: data.subtotal,
-        taxes: data.taxes,
-        balance: data.balance,
-        avgTicket: data.avgTicket,
-        customerCount: data.customerCount,
-        recurrencia: data.recurrencia,
-        revDelta: data.revDelta,
-        ticketDelta: data.ticketDelta,
-        customersDelta: data.customersDelta,
-        topCustomers: data.topCustomers,
-        categories: data.categories.slice(0, 10),
-        trend: data.trend,
+        periodLabel: label,
+        invCount: reportData.invCount,
+        revenue: reportData.revenue,
+        subtotal: reportData.subtotal,
+        taxes: reportData.taxes,
+        balance: reportData.balance,
+        avgTicket: reportData.avgTicket,
+        customerCount: reportData.customerCount,
+        recurrencia: reportData.recurrencia,
+        revDelta: reportData.revDelta,
+        ticketDelta: reportData.ticketDelta,
+        customersDelta: reportData.customersDelta,
+        topCustomers: reportData.topCustomers,
+        categories: reportData.categories.slice(0, 10),
+        trend: reportData.trend,
       });
     } finally {
       setGenerating(false);
@@ -174,17 +194,6 @@ export function DashboardPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <PeriodSelector />
-          <button
-            onClick={handleGeneratePDF}
-            disabled={generating}
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-red text-brand-red-foreground px-4 py-2 text-sm font-semibold shadow-[var(--shadow-sm)] hover:opacity-90 disabled:opacity-60 transition-opacity"
-          >
-            {generating ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Generando...</>
-            ) : (
-              <><FileDown className="h-4 w-4" /> Generar Reporte PDF</>
-            )}
-          </button>
         </div>
       </header>
 
@@ -395,9 +404,178 @@ export function DashboardPage() {
           <Package className="h-4 w-4" /> Ver Catálogo
         </Link>
       </div>
+
+      {/* ===== Sección de Reporte PDF (pie de página) ===== */}
+      <section className="mt-10 rounded-2xl bg-gradient-to-br from-card to-muted/40 border border-border p-6 sm:p-8 shadow-[var(--shadow-sm)]">
+        <div className="flex items-start gap-3 mb-5">
+          <div className="h-10 w-10 rounded-lg bg-brand-red/10 text-brand-red flex items-center justify-center shrink-0">
+            <FileDown className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold tracking-tight">Generar Reporte Ejecutivo PDF</h3>
+            <p className="text-sm text-muted-foreground mt-0.5 max-w-2xl">
+              Selecciona un rango de fechas para acotar el análisis. El reporte incluirá KPIs, gráficas
+              y párrafos explicativos automáticos para cada visualización. Si dejas las fechas en blanco,
+              se utilizará el período activo ({periodLabel}).
+            </p>
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 flex items-center gap-1.5">
+              <CalendarRange className="h-3.5 w-3.5" /> Fecha inicio
+            </label>
+            <input
+              type="date"
+              value={reportFrom}
+              min={ds.dateRange.from}
+              max={ds.dateRange.to}
+              onChange={(e) => setReportFrom(e.target.value)}
+              className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 flex items-center gap-1.5">
+              <CalendarRange className="h-3.5 w-3.5" /> Fecha fin
+            </label>
+            <input
+              type="date"
+              value={reportTo}
+              min={reportFrom || ds.dateRange.from}
+              max={ds.dateRange.to}
+              onChange={(e) => setReportTo(e.target.value)}
+              className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+          <button
+            onClick={handleGeneratePDF}
+            disabled={generating || (Boolean(reportFrom) !== Boolean(reportTo))}
+            className="h-10 inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red text-brand-red-foreground px-5 text-sm font-semibold shadow-[var(--shadow-sm)] hover:opacity-90 disabled:opacity-60 transition-opacity whitespace-nowrap"
+          >
+            {generating ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Generando...</>
+            ) : (
+              <><FileDown className="h-4 w-4" /> Generar Reporte PDF</>
+            )}
+          </button>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span className="font-medium">Atajos:</span>
+          {ds.years.map((y) => (
+            <button
+              key={y}
+              type="button"
+              onClick={() => {
+                const yearDates = ds.invoices.filter((i) => i.year === y).map((i) => i.date).sort();
+                if (yearDates.length > 0) {
+                  setReportFrom(yearDates[0]);
+                  setReportTo(yearDates[yearDates.length - 1]);
+                }
+              }}
+              className="px-2 py-1 rounded-md border border-border bg-background hover:border-primary/40 hover:text-foreground transition-colors"
+            >
+              Año {y}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => { setReportFrom(""); setReportTo(""); }}
+            className="px-2 py-1 rounded-md border border-border bg-background hover:border-primary/40 hover:text-foreground transition-colors"
+          >
+            Limpiar
+          </button>
+          <span className="ml-auto text-[11px]">
+            Datos disponibles: {fmtDate(ds.dateRange.from)} — {fmtDate(ds.dateRange.to)}
+          </span>
+        </div>
+      </section>
     </div>
   );
 }
+
+// Construye el snapshot del reporte a partir de las facturas filtradas (por fechas o filtro activo)
+function computeReportSnapshot(
+  allInvoices: Invoice[],
+  current: Invoice[],
+  year: string | null,
+  month: string | null,
+  usingRange: boolean,
+  _rangeFrom: string,
+) {
+  const revenue = current.reduce((a, i) => a + i.total, 0);
+  const subtotal = current.reduce((a, i) => a + i.subtotal, 0);
+  const balance = current.reduce((a, i) => a + i.balance, 0);
+  const invCount = current.length;
+  const avgTicket = invCount > 0 ? revenue / invCount : 0;
+  const customerSet = new Set(current.map((i) => i.customerName));
+  const customerCount = customerSet.size;
+  const recurrencia = customerCount > 0 ? invCount / customerCount : 0;
+
+  // Comparativa: período anterior de igual longitud (rango) o filtros (año/mes)
+  let prev: Invoice[] = [];
+  if (usingRange && current.length > 0) {
+    const sorted = current.map((i) => i.date).sort();
+    const fromDate = new Date(sorted[0] + "T00:00:00").getTime();
+    const toDate = new Date(sorted[sorted.length - 1] + "T00:00:00").getTime();
+    const span = toDate - fromDate;
+    const prevTo = new Date(fromDate - 24 * 3600 * 1000).toISOString().slice(0, 10);
+    const prevFrom = new Date(fromDate - 24 * 3600 * 1000 - span).toISOString().slice(0, 10);
+    prev = allInvoices.filter((i) => i.date >= prevFrom && i.date <= prevTo);
+  } else if (month) {
+    const allMonths = Array.from(new Set(allInvoices.map((i) => i.yearMonth))).sort();
+    const idx = allMonths.indexOf(month);
+    const prevM = idx > 0 ? allMonths[idx - 1] : null;
+    if (prevM) prev = allInvoices.filter((i) => i.yearMonth === prevM);
+  } else if (year) {
+    const allYears = Array.from(new Set(allInvoices.map((i) => i.year))).sort();
+    const idx = allYears.indexOf(year);
+    const prevY = idx > 0 ? allYears[idx - 1] : null;
+    if (prevY) prev = allInvoices.filter((i) => i.year === prevY);
+  }
+
+  const prevRev = prev.reduce((a, i) => a + i.total, 0);
+  const prevTicket = prev.length > 0 ? prevRev / prev.length : 0;
+  const prevCustomers = new Set(prev.map((i) => i.customerName)).size;
+  const revDelta = prevRev > 0 ? ((revenue - prevRev) / prevRev) * 100 : NaN;
+  const ticketDelta = prevTicket > 0 ? ((avgTicket - prevTicket) / prevTicket) * 100 : NaN;
+  const customersDelta = prevCustomers > 0 ? ((customerCount - prevCustomers) / prevCustomers) * 100 : NaN;
+
+  // Tendencia mensual sobre el período seleccionado
+  const monthsInRange = Array.from(new Set(current.map((i) => i.yearMonth))).sort();
+  const trend = monthsInRange.map((m) => {
+    const r = current.filter((i) => i.yearMonth === m);
+    const ventas = r.reduce((a, i) => a + i.total, 0);
+    const facturas = r.length;
+    return { period: fmtMonth(m), ventas: Math.round(ventas), facturas };
+  });
+
+  // Top 10 clientes
+  const custMap = new Map<string, number>();
+  for (const i of current) custMap.set(i.customerName, (custMap.get(i.customerName) ?? 0) + i.total);
+  const topCustomers = Array.from(custMap, ([fullName, ventas]) => ({ fullName, ventas: Math.round(ventas) }))
+    .sort((a, b) => b.ventas - a.ventas)
+    .slice(0, 10);
+
+  // Categorías
+  const catMap = new Map<string, number>();
+  for (const i of current) {
+    for (const ln of i.lines) {
+      const c = ln.category ?? "Otros";
+      catMap.set(c, (catMap.get(c) ?? 0) + ln.lineNet);
+    }
+  }
+  const categories = Array.from(catMap, ([name, value]) => ({ name, value: Math.round(value) }))
+    .sort((a, b) => b.value - a.value);
+
+  return {
+    revenue, subtotal, balance, invCount, avgTicket, customerCount, recurrencia,
+    revDelta, ticketDelta, customersDelta, taxes: revenue - subtotal,
+    trend, topCustomers, categories,
+  };
+}
+
 
 function prevMonthOf(m: string, all: string[]): string | null {
   const idx = all.indexOf(m);
