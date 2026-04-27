@@ -236,12 +236,12 @@ export async function generateReportPDF(payload: ReportPayload): Promise<void> {
     doc.setFontSize(15);
     doc.text(k.value, cx + 12, cy + 36);
     if (k.delta !== undefined && isFinite(k.delta)) {
-      const sign = k.delta >= 0 ? "▲" : "▼";
+      const sign = k.delta >= 0 ? "+" : "-";
       const color: [number, number, number] = k.delta >= 0 ? [22, 163, 74] : [220, 38, 38];
       doc.setTextColor(...color);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
-      doc.text(`${sign} ${Math.abs(k.delta).toFixed(1)}%`, cx + colW - 12, cy + 36, { align: "right" });
+      doc.text(`${sign}${Math.abs(k.delta).toFixed(1)}% vs anterior`, cx + colW - 12, cy + 36, { align: "right" });
     }
   });
   y += rowH * 2 + 8 + 20;
@@ -343,12 +343,23 @@ export async function generateReportPDF(payload: ReportPayload): Promise<void> {
     doc.setPage(i);
     doc.setDrawColor(...LIGHT);
     doc.setLineWidth(0.5);
-    doc.line(margin, pageH - 28, pageW - margin, pageH - 28);
+    doc.line(margin, pageH - 40, pageW - margin, pageH - 40);
     doc.setTextColor(...GRAY);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.text("Visor de Ventas · Reporte ejecutivo confidencial", margin, pageH - 14);
-    doc.text(`Página ${i} de ${total}`, pageW - margin, pageH - 14, { align: "right" });
+    doc.text("Visor de Ventas - Reporte ejecutivo confidencial", margin, pageH - 26);
+    doc.text(`Pagina ${i} de ${total}`, pageW - margin, pageH - 26, { align: "right" });
+
+    // Crédito de marca centrado
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7.5);
+    doc.setTextColor(120, 130, 150);
+    doc.text(
+      "Generado con Visor de Ventas. Desarrollado por Miguel M. Navarro.",
+      pageW / 2,
+      pageH - 12,
+      { align: "center" },
+    );
   }
 
   const safeLabel = payload.periodLabel.replace(/[^\w\-]+/g, "_");
