@@ -38,10 +38,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
               <div className="hidden sm:block leading-tight">
                 <div className="text-[15px] font-bold tracking-tight text-foreground">
-                  Centro de Cobranza
+                  Visor de Ventas
                 </div>
                 <div className="text-[11px] text-muted-foreground">
-                  Cobranza sistematizada
+                  Visualizador del Historial de ventas.
                 </div>
               </div>
             </Link>
