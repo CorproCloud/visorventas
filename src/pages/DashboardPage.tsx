@@ -6,14 +6,15 @@ import {
 } from "recharts";
 import {
   DollarSign, Percent, ShoppingCart, Users, Database, Package, FileText,
-  FileDown, Settings2, Loader2,
+  FileDown, Settings2, Loader2, CalendarRange,
 } from "lucide-react";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { PeriodSelector } from "@/components/layout/PeriodSelector";
 import { useDataStore, filterInvoices } from "@/lib/store";
-import { fmtMoney, fmtNumber, fmtPct, fmtMonth, safeId } from "@/lib/format";
+import { fmtMoney, fmtNumber, fmtPct, fmtMonth, fmtDate, safeId } from "@/lib/format";
 import { generateReportPDF } from "@/lib/pdfReport";
 import { cn } from "@/lib/utils";
+import type { Invoice } from "@/lib/types";
 
 // Paleta amplia, sin repeticiones (15 tonos)
 const CATEGORY_PALETTE = [
