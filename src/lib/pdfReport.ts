@@ -193,7 +193,7 @@ export async function generateReportPDF(payload: ReportPayload): Promise<void> {
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
-  doc.text("Visor de Ventas", margin, 32);
+  doc.text("", margin, 32);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.text("Reporte ejecutivo de desempeño comercial", margin, 50);
@@ -356,7 +356,7 @@ export async function generateReportPDF(payload: ReportPayload): Promise<void> {
     doc.setFontSize(7.5);
     doc.setTextColor(120, 130, 150);
     doc.text(
-      "Generado con Visor de Ventas. Desarrollado por Miguel M. Navarro.",
+      "Desarrollado por Miguel M. Navarro.",
       pageW / 2,
       pageH - 12,
       { align: "center" },
