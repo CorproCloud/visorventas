@@ -159,7 +159,8 @@ async function captureNode(id: string): Promise<string | null> {
 
 function ensureSpace(doc: jsPDF, y: number, needed: number, margin: number): number {
   const pageH = doc.internal.pageSize.getHeight();
-  if (y + needed > pageH - margin - 20) {
+  // Reservar 50pt para footer (línea + pie + crédito)
+  if (y + needed > pageH - margin - 50) {
     doc.addPage();
     return margin;
   }
