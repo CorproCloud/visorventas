@@ -343,6 +343,8 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
           </table>
         </div>
       </section>
+      </>
+      )}
     </div>
   );
 }
