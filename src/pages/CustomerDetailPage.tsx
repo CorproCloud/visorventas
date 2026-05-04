@@ -1,14 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  BarChart, Bar,
 } from "recharts";
 import {
   ArrowLeft, DollarSign, ShoppingCart, FileText, Wallet, Calendar, Package, Mail,
 } from "lucide-react";
 import { useDataStore } from "@/lib/store";
 import { KpiCard } from "@/components/dashboard/KpiCard";
+import { DateRangeFilter, type DateRange } from "@/components/layout/DateRangeFilter";
 import { fmtMoney, fmtNumber, fmtDate, fmtMonth, safeId } from "@/lib/format";
 
 interface CustomerDetailPageProps {
@@ -17,6 +17,8 @@ interface CustomerDetailPageProps {
 
 export function CustomerDetailPage({ customerId }: CustomerDetailPageProps) {
   const ds = useDataStore((s) => s.datasets.find((d) => d.id === s.activeDatasetId) ?? null);
+  const [range, setRange] = useState<DateRange>({ from: null, to: null });
+
 
   const decoded = useMemo(() => {
     try { return decodeURIComponent(customerId); } catch { return customerId; }
