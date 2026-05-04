@@ -185,22 +185,46 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1.5">
             <span className="font-mono">{data.code}</span>
             <span>Unidad: {data.unit}</span>
-            <span className="inline-flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              {fmtDate(data.firstDate)} → {fmtDate(data.lastDate)}
-            </span>
+            {!data.empty && data.firstDate && data.lastDate && (
+              <span className="inline-flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                {fmtDate(data.firstDate)} → {fmtDate(data.lastDate)}
+              </span>
+            )}
+          </div>
+          <div className="mt-4">
+            <DateRangeFilter
+              range={range}
+              onChange={setRange}
+              min={data.minDate}
+              max={data.maxDate}
+            />
           </div>
         </div>
       </header>
 
+      {data.empty ? (
+        <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
+          <p className="text-sm text-muted-foreground">
+            No hay ventas registradas para el rango seleccionado.
+          </p>
+          <button
+            onClick={() => setRange({ from: null, to: null })}
+            className="mt-3 text-xs text-primary hover:underline"
+          >
+            Limpiar filtro
+          </button>
+        </div>
+      ) : (
+      <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Ventas netas" value={fmtMoney(data.totalNet, true)}
-          hint={`${fmtNumber(data.invoiceCount)} facturas`} icon={DollarSign} accent="navy" />
-        <KpiCard label="Unidades vendidas" value={fmtNumber(data.totalUnits)}
+        <KpiCard label="Ventas netas" value={fmtMoney(data.totalNet!, true)}
+          hint={`${fmtNumber(data.invoiceCount!)} facturas`} icon={DollarSign} accent="navy" />
+        <KpiCard label="Unidades vendidas" value={fmtNumber(data.totalUnits!)}
           hint={`Unidad: ${data.unit}`} icon={ShoppingCart} accent="emerald" />
-        <KpiCard label="Precio promedio" value={fmtMoney(data.avgPrice)}
+        <KpiCard label="Precio promedio" value={fmtMoney(data.avgPrice!)}
           hint="Por unidad" icon={TrendingUp} accent="slate" />
-        <KpiCard label="Clientes" value={fmtNumber(data.customers.length)}
+        <KpiCard label="Clientes" value={fmtNumber(data.customers!.length)}
           hint="que compran este producto" icon={Users} accent="navy" />
       </div>
 
