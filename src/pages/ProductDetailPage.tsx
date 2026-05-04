@@ -73,18 +73,42 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
     const unit = hits[0].unit;
     const category = hits[0].category;
 
-    const totalUnits = hits.reduce((a, h) => a + h.quantity, 0);
-    const totalNet = hits.reduce((a, h) => a + h.lineNet, 0);
-    const avgPrice = totalUnits > 0 ? totalNet / totalUnits : 0;
-    const dates = hits.map((h) => h.date).sort();
-    const firstDate = dates[0];
-    const lastDate = dates[dates.length - 1];
+    // Rango global del producto (límites del filtro)
+    const allDates = hits.map((h) => h.date).sort();
+    const minDate = allDates[0];
+    const maxDate = allDates[allDates.length - 1];
 
-    // Tendencia mensual (todos los meses del dataset, para visualizar gaps)
+    // Aplicar filtro temporal
+    const fHits = hits.filter((h) => {
+      if (range.from && h.date < range.from) return false;
+      if (range.to && h.date > range.to) return false;
+      return true;
+    });
+
+    if (fHits.length === 0) {
+      return {
+        notFound: false as const,
+        empty: true as const,
+        code: decoded, description, unit, category,
+        minDate, maxDate,
+      };
+    }
+
+    const totalUnits = fHits.reduce((a, h) => a + h.quantity, 0);
+    const totalNet = fHits.reduce((a, h) => a + h.lineNet, 0);
+    const avgPrice = totalUnits > 0 ? totalNet / totalUnits : 0;
+    const fDates = fHits.map((h) => h.date).sort();
+    const firstDate = fDates[0];
+    const lastDate = fDates[fDates.length - 1];
+
+    // Tendencia mensual (solo meses dentro del rango filtrado del producto)
+    const monthSet = new Set(fHits.map((h) => h.yearMonth));
+    const filteredMonths = ds.months.filter((m) => monthSet.has(m));
     const monthlyMap = new Map<string, { ym: string; ventas: number; unidades: number; facturas: number }>();
-    for (const m of ds.months) monthlyMap.set(m, { ym: m, ventas: 0, unidades: 0, facturas: 0 });
-    for (const h of hits) {
-      const cur = monthlyMap.get(h.yearMonth)!;
+    for (const m of filteredMonths) monthlyMap.set(m, { ym: m, ventas: 0, unidades: 0, facturas: 0 });
+    for (const h of fHits) {
+      const cur = monthlyMap.get(h.yearMonth);
+      if (!cur) continue;
       cur.ventas += h.lineNet;
       cur.unidades += h.quantity;
       cur.facturas += 1;
