@@ -14,6 +14,7 @@ import { Route as DataRouteImport } from './routes/data'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CatalogRouteImport } from './routes/catalog'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProductsProductCodeRouteImport } from './routes/products.$productCode'
 import { Route as CustomersCustomerIdRouteImport } from './routes/customers.$customerId'
 
 const ExplorerRoute = ExplorerRouteImport.update({
@@ -41,6 +42,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProductsProductCodeRoute = ProductsProductCodeRouteImport.update({
+  id: '/products/$productCode',
+  path: '/products/$productCode',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CustomersCustomerIdRoute = CustomersCustomerIdRouteImport.update({
   id: '/customers/$customerId',
   path: '/customers/$customerId',
@@ -54,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/data': typeof DataRoute
   '/explorer': typeof ExplorerRoute
   '/customers/$customerId': typeof CustomersCustomerIdRoute
+  '/products/$productCode': typeof ProductsProductCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,6 +69,7 @@ export interface FileRoutesByTo {
   '/data': typeof DataRoute
   '/explorer': typeof ExplorerRoute
   '/customers/$customerId': typeof CustomersCustomerIdRoute
+  '/products/$productCode': typeof ProductsProductCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,6 +79,7 @@ export interface FileRoutesById {
   '/data': typeof DataRoute
   '/explorer': typeof ExplorerRoute
   '/customers/$customerId': typeof CustomersCustomerIdRoute
+  '/products/$productCode': typeof ProductsProductCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -81,6 +90,7 @@ export interface FileRouteTypes {
     | '/data'
     | '/explorer'
     | '/customers/$customerId'
+    | '/products/$productCode'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -89,6 +99,7 @@ export interface FileRouteTypes {
     | '/data'
     | '/explorer'
     | '/customers/$customerId'
+    | '/products/$productCode'
   id:
     | '__root__'
     | '/'
@@ -97,6 +108,7 @@ export interface FileRouteTypes {
     | '/data'
     | '/explorer'
     | '/customers/$customerId'
+    | '/products/$productCode'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -106,6 +118,7 @@ export interface RootRouteChildren {
   DataRoute: typeof DataRoute
   ExplorerRoute: typeof ExplorerRoute
   CustomersCustomerIdRoute: typeof CustomersCustomerIdRoute
+  ProductsProductCodeRoute: typeof ProductsProductCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -145,6 +158,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/products/$productCode': {
+      id: '/products/$productCode'
+      path: '/products/$productCode'
+      fullPath: '/products/$productCode'
+      preLoaderRoute: typeof ProductsProductCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/customers/$customerId': {
       id: '/customers/$customerId'
       path: '/customers/$customerId'
@@ -162,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   DataRoute: DataRoute,
   ExplorerRoute: ExplorerRoute,
   CustomersCustomerIdRoute: CustomersCustomerIdRoute,
+  ProductsProductCodeRoute: ProductsProductCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
