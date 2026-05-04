@@ -1,15 +1,15 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   BarChart, Bar, LineChart, Line,
 } from "recharts";
-import { useState } from "react";
 import {
   ArrowLeft, Package, Users, DollarSign, ShoppingCart, Calendar, TrendingUp,
 } from "lucide-react";
 import { useDataStore } from "@/lib/store";
 import { KpiCard } from "@/components/dashboard/KpiCard";
+import { DateRangeFilter, type DateRange } from "@/components/layout/DateRangeFilter";
 import { fmtMoney, fmtNumber, fmtDate, fmtMonth, safeId } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +22,7 @@ type ChartType = "area" | "bar" | "line";
 export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
   const ds = useDataStore((s) => s.datasets.find((d) => d.id === s.activeDatasetId) ?? null);
   const [chart, setChart] = useState<ChartType>("area");
+  const [range, setRange] = useState<DateRange>({ from: null, to: null });
 
   const decoded = useMemo(() => {
     try { return decodeURIComponent(productCode); } catch { return productCode; }
