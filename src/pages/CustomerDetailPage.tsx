@@ -1,14 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  BarChart, Bar,
 } from "recharts";
 import {
   ArrowLeft, DollarSign, ShoppingCart, FileText, Wallet, Calendar, Package, Mail,
 } from "lucide-react";
 import { useDataStore } from "@/lib/store";
 import { KpiCard } from "@/components/dashboard/KpiCard";
+import { DateRangeFilter, type DateRange } from "@/components/layout/DateRangeFilter";
 import { fmtMoney, fmtNumber, fmtDate, fmtMonth, safeId } from "@/lib/format";
 
 interface CustomerDetailPageProps {
@@ -17,6 +17,8 @@ interface CustomerDetailPageProps {
 
 export function CustomerDetailPage({ customerId }: CustomerDetailPageProps) {
   const ds = useDataStore((s) => s.datasets.find((d) => d.id === s.activeDatasetId) ?? null);
+  const [range, setRange] = useState<DateRange>({ from: null, to: null });
+
 
   const decoded = useMemo(() => {
     try { return decodeURIComponent(customerId); } catch { return customerId; }
@@ -24,10 +26,34 @@ export function CustomerDetailPage({ customerId }: CustomerDetailPageProps) {
 
   const data = useMemo(() => {
     if (!ds) return null;
-    const invs = ds.invoices.filter(
+    const allInvs = ds.invoices.filter(
       (i) => safeId(i.customerName) === customerId || i.customerName === decoded,
     );
-    if (invs.length === 0) return { invoices: [], notFound: true } as const;
+    if (allInvs.length === 0) return { invoices: [], notFound: true } as const;
+
+    // Rango global de fechas del cliente (para los límites del filtro)
+    const allDates = allInvs.map((i) => i.date).sort();
+    const minDate = allDates[0];
+    const maxDate = allDates[allDates.length - 1];
+
+    // Aplicar filtro de rango temporal
+    const invs = allInvs.filter((i) => {
+      if (range.from && i.date < range.from) return false;
+      if (range.to && i.date > range.to) return false;
+      return true;
+    });
+
+    if (invs.length === 0) {
+      return {
+        invoices: [],
+        notFound: false as const,
+        empty: true as const,
+        minDate, maxDate,
+        customerName: allInvs[0].customerName,
+        internalId: allInvs[0].customerId,
+        agent: allInvs[0].agentId,
+      };
+    }
 
     const totalRev = invs.reduce((a, i) => a + i.total, 0);
     const subtotal = invs.reduce((a, i) => a + i.subtotal, 0);
@@ -39,11 +65,13 @@ export function CustomerDetailPage({ customerId }: CustomerDetailPageProps) {
     const lastDate = dates.at(-1)!;
     const monthSet = new Set(invs.map((i) => i.yearMonth));
 
-    // Tendencia mensual de este cliente
+    // Tendencia mensual de este cliente (solo meses dentro del rango filtrado)
+    const filteredMonths = ds.months.filter((m) => monthSet.has(m));
     const monthlyMap = new Map<string, { ym: string; ventas: number; facturas: number }>();
-    for (const m of ds.months) monthlyMap.set(m, { ym: m, ventas: 0, facturas: 0 });
+    for (const m of filteredMonths) monthlyMap.set(m, { ym: m, ventas: 0, facturas: 0 });
     for (const i of invs) {
-      const cur = monthlyMap.get(i.yearMonth)!;
+      const cur = monthlyMap.get(i.yearMonth);
+      if (!cur) continue;
       cur.ventas += i.total;
       cur.facturas += 1;
     }
@@ -69,15 +97,17 @@ export function CustomerDetailPage({ customerId }: CustomerDetailPageProps) {
 
     return {
       invoices: invs,
-      notFound: false,
+      notFound: false as const,
+      empty: false as const,
       totalRev, subtotal, balance, totalUnits, avgTicket,
       firstDate, lastDate, activeMonths: monthSet.size,
+      minDate, maxDate,
       trend, topProducts,
       customerName: invs[0].customerName,
       internalId: invs[0].customerId,
       agent: invs[0].agentId,
-    } as const;
-  }, [ds, customerId, decoded]);
+    };
+  }, [ds, customerId, decoded, range]);
 
   if (!ds) {
     return <NotFound name={decoded} reason="No hay datasets cargados." />;
@@ -85,6 +115,8 @@ export function CustomerDetailPage({ customerId }: CustomerDetailPageProps) {
   if (!data || data.notFound) {
     return <NotFound name={decoded} reason="No se encontraron facturas para este cliente." />;
   }
+
+  const empty = data.empty === true;
 
   return (
     <div className="px-4 sm:px-8 py-6 sm:py-8 max-w-[1500px] mx-auto">
@@ -97,24 +129,50 @@ export function CustomerDetailPage({ customerId }: CustomerDetailPageProps) {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1.5">
           <span className="font-mono">Cliente {data.internalId}</span>
           {data.agent && <span className="inline-flex items-center gap-1"><Mail className="h-3 w-3" /> Agente {data.agent}</span>}
-          <span className="inline-flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            {fmtDate(data.firstDate)} → {fmtDate(data.lastDate)}
-          </span>
-          <span>{data.activeMonths} meses activos</span>
+          {!empty && data.firstDate && data.lastDate && (
+            <>
+              <span className="inline-flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                {fmtDate(data.firstDate)} → {fmtDate(data.lastDate)}
+              </span>
+              <span>{data.activeMonths} meses activos</span>
+            </>
+          )}
+        </div>
+        <div className="mt-4">
+          <DateRangeFilter
+            range={range}
+            onChange={setRange}
+            min={data.minDate}
+            max={data.maxDate}
+          />
         </div>
       </header>
 
+      {empty ? (
+        <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
+          <p className="text-sm text-muted-foreground">
+            No hay consumo registrado para el rango seleccionado.
+          </p>
+          <button
+            onClick={() => setRange({ from: null, to: null })}
+            className="mt-3 text-xs text-primary hover:underline"
+          >
+            Limpiar filtro
+          </button>
+        </div>
+      ) : (
+      <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Facturado total" value={fmtMoney(data.totalRev, true)}
-          hint={`Subtotal ${fmtMoney(data.subtotal, true)}`} icon={DollarSign} accent="navy" />
+        <KpiCard label="Facturado total" value={fmtMoney(data.totalRev!, true)}
+          hint={`Subtotal ${fmtMoney(data.subtotal!, true)}`} icon={DollarSign} accent="navy" />
         <KpiCard label="Facturas" value={fmtNumber(data.invoices.length)}
-          hint={`${fmtNumber(data.totalUnits)} unidades`} icon={FileText} accent="emerald" />
-        <KpiCard label="Ticket medio" value={fmtMoney(data.avgTicket)}
+          hint={`${fmtNumber(data.totalUnits!)} unidades`} icon={FileText} accent="emerald" />
+        <KpiCard label="Ticket medio" value={fmtMoney(data.avgTicket!)}
           hint="por factura" icon={ShoppingCart} accent="slate" />
-        <KpiCard label="Saldo pendiente" value={fmtMoney(data.balance, true)}
-          hint={data.balance > 0 ? "Por cobrar" : "Cobrado"} icon={Wallet}
-          accent={data.balance > 0 ? "red" : "emerald"} />
+        <KpiCard label="Saldo pendiente" value={fmtMoney(data.balance!, true)}
+          hint={(data.balance ?? 0) > 0 ? "Por cobrar" : "Cobrado"} icon={Wallet}
+          accent={(data.balance ?? 0) > 0 ? "red" : "emerald"} />
       </div>
 
       <div className="mt-6 grid lg:grid-cols-3 gap-4">
@@ -214,6 +272,8 @@ export function CustomerDetailPage({ customerId }: CustomerDetailPageProps) {
           </table>
         </div>
       </section>
+      </>
+      )}
     </div>
   );
 }

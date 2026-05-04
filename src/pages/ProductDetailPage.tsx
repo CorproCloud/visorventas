@@ -1,15 +1,15 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   BarChart, Bar, LineChart, Line,
 } from "recharts";
-import { useState } from "react";
 import {
   ArrowLeft, Package, Users, DollarSign, ShoppingCart, Calendar, TrendingUp,
 } from "lucide-react";
 import { useDataStore } from "@/lib/store";
 import { KpiCard } from "@/components/dashboard/KpiCard";
+import { DateRangeFilter, type DateRange } from "@/components/layout/DateRangeFilter";
 import { fmtMoney, fmtNumber, fmtDate, fmtMonth, safeId } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +22,7 @@ type ChartType = "area" | "bar" | "line";
 export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
   const ds = useDataStore((s) => s.datasets.find((d) => d.id === s.activeDatasetId) ?? null);
   const [chart, setChart] = useState<ChartType>("area");
+  const [range, setRange] = useState<DateRange>({ from: null, to: null });
 
   const decoded = useMemo(() => {
     try { return decodeURIComponent(productCode); } catch { return productCode; }
@@ -72,18 +73,42 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
     const unit = hits[0].unit;
     const category = hits[0].category;
 
-    const totalUnits = hits.reduce((a, h) => a + h.quantity, 0);
-    const totalNet = hits.reduce((a, h) => a + h.lineNet, 0);
-    const avgPrice = totalUnits > 0 ? totalNet / totalUnits : 0;
-    const dates = hits.map((h) => h.date).sort();
-    const firstDate = dates[0];
-    const lastDate = dates[dates.length - 1];
+    // Rango global del producto (límites del filtro)
+    const allDates = hits.map((h) => h.date).sort();
+    const minDate = allDates[0];
+    const maxDate = allDates[allDates.length - 1];
 
-    // Tendencia mensual (todos los meses del dataset, para visualizar gaps)
+    // Aplicar filtro temporal
+    const fHits = hits.filter((h) => {
+      if (range.from && h.date < range.from) return false;
+      if (range.to && h.date > range.to) return false;
+      return true;
+    });
+
+    if (fHits.length === 0) {
+      return {
+        notFound: false as const,
+        empty: true as const,
+        code: decoded, description, unit, category,
+        minDate, maxDate,
+      };
+    }
+
+    const totalUnits = fHits.reduce((a, h) => a + h.quantity, 0);
+    const totalNet = fHits.reduce((a, h) => a + h.lineNet, 0);
+    const avgPrice = totalUnits > 0 ? totalNet / totalUnits : 0;
+    const fDates = fHits.map((h) => h.date).sort();
+    const firstDate = fDates[0];
+    const lastDate = fDates[fDates.length - 1];
+
+    // Tendencia mensual (solo meses dentro del rango filtrado del producto)
+    const monthSet = new Set(fHits.map((h) => h.yearMonth));
+    const filteredMonths = ds.months.filter((m) => monthSet.has(m));
     const monthlyMap = new Map<string, { ym: string; ventas: number; unidades: number; facturas: number }>();
-    for (const m of ds.months) monthlyMap.set(m, { ym: m, ventas: 0, unidades: 0, facturas: 0 });
-    for (const h of hits) {
-      const cur = monthlyMap.get(h.yearMonth)!;
+    for (const m of filteredMonths) monthlyMap.set(m, { ym: m, ventas: 0, unidades: 0, facturas: 0 });
+    for (const h of fHits) {
+      const cur = monthlyMap.get(h.yearMonth);
+      if (!cur) continue;
       cur.ventas += h.lineNet;
       cur.unidades += h.quantity;
       cur.facturas += 1;
@@ -104,7 +129,7 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
       invoiceCount: number;
       lastDate: string;
     }>();
-    for (const h of hits) {
+    for (const h of fHits) {
       const cur = custMap.get(h.customerName) ?? {
         customerId: h.customerId,
         customerName: h.customerName,
@@ -123,6 +148,7 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
 
     return {
       notFound: false as const,
+      empty: false as const,
       code: decoded,
       description,
       unit,
@@ -132,11 +158,13 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
       avgPrice,
       firstDate,
       lastDate,
-      invoiceCount: hits.length,
+      minDate,
+      maxDate,
+      invoiceCount: fHits.length,
       trend,
       customers,
     };
-  }, [ds, decoded]);
+  }, [ds, decoded, range]);
 
   if (!ds) return <NotFound code={decoded} reason="No hay datasets cargados." />;
   if (!data || data.notFound) return <NotFound code={decoded} reason="No se encontraron ventas para este producto." />;
@@ -157,22 +185,46 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1.5">
             <span className="font-mono">{data.code}</span>
             <span>Unidad: {data.unit}</span>
-            <span className="inline-flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              {fmtDate(data.firstDate)} → {fmtDate(data.lastDate)}
-            </span>
+            {!data.empty && data.firstDate && data.lastDate && (
+              <span className="inline-flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                {fmtDate(data.firstDate)} → {fmtDate(data.lastDate)}
+              </span>
+            )}
+          </div>
+          <div className="mt-4">
+            <DateRangeFilter
+              range={range}
+              onChange={setRange}
+              min={data.minDate}
+              max={data.maxDate}
+            />
           </div>
         </div>
       </header>
 
+      {data.empty ? (
+        <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
+          <p className="text-sm text-muted-foreground">
+            No hay ventas registradas para el rango seleccionado.
+          </p>
+          <button
+            onClick={() => setRange({ from: null, to: null })}
+            className="mt-3 text-xs text-primary hover:underline"
+          >
+            Limpiar filtro
+          </button>
+        </div>
+      ) : (
+      <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Ventas netas" value={fmtMoney(data.totalNet, true)}
-          hint={`${fmtNumber(data.invoiceCount)} facturas`} icon={DollarSign} accent="navy" />
-        <KpiCard label="Unidades vendidas" value={fmtNumber(data.totalUnits)}
+        <KpiCard label="Ventas netas" value={fmtMoney(data.totalNet!, true)}
+          hint={`${fmtNumber(data.invoiceCount!)} facturas`} icon={DollarSign} accent="navy" />
+        <KpiCard label="Unidades vendidas" value={fmtNumber(data.totalUnits!)}
           hint={`Unidad: ${data.unit}`} icon={ShoppingCart} accent="emerald" />
-        <KpiCard label="Precio promedio" value={fmtMoney(data.avgPrice)}
+        <KpiCard label="Precio promedio" value={fmtMoney(data.avgPrice!)}
           hint="Por unidad" icon={TrendingUp} accent="slate" />
-        <KpiCard label="Clientes" value={fmtNumber(data.customers.length)}
+        <KpiCard label="Clientes" value={fmtNumber(data.customers!!.length)}
           hint="que compran este producto" icon={Users} accent="navy" />
       </div>
 
@@ -201,10 +253,10 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
           </div>
         </div>
         <div className="overflow-x-auto pb-2 -mx-1 px-1">
-          <div style={{ minWidth: Math.max(data.trend.length * 60, 600), height: 320 }}>
+          <div style={{ minWidth: Math.max(data.trend!.length * 60, 600), height: 320 }}>
             <ResponsiveContainer width="100%" height="100%">
               {chart === "area" ? (
-                <AreaChart data={data.trend} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                <AreaChart data={data.trend!} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="prod-grad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.55} />
@@ -221,7 +273,7 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
                   <Area type="monotone" dataKey="ventas" stroke="var(--chart-1)" strokeWidth={2.5} fill="url(#prod-grad)" />
                 </AreaChart>
               ) : chart === "bar" ? (
-                <BarChart data={data.trend} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                <BarChart data={data.trend!} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="period" stroke="var(--muted-foreground)" fontSize={11}
                     tickLine={false} axisLine={false} interval={0} angle={-25} textAnchor="end" height={50} />
@@ -232,7 +284,7 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
                   <Bar dataKey="ventas" fill="var(--chart-1)" radius={[6, 6, 0, 0]} />
                 </BarChart>
               ) : (
-                <LineChart data={data.trend} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                <LineChart data={data.trend!} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="period" stroke="var(--muted-foreground)" fontSize={11}
                     tickLine={false} axisLine={false} interval={0} angle={-25} textAnchor="end" height={50} />
@@ -252,7 +304,7 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
       {/* Clientes que compran este producto */}
       <section className="mt-6 rounded-2xl bg-card border border-border overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
-          <h3 className="text-sm font-semibold">Clientes que compran este producto ({data.customers.length})</h3>
+          <h3 className="text-sm font-semibold">Clientes que compran este producto ({data.customers!.length})</h3>
           <p className="text-xs text-muted-foreground mt-0.5">Ordenados por facturación. Click para ver detalle del cliente.</p>
         </div>
         <div className="overflow-x-auto max-h-[60vh]">
@@ -268,7 +320,7 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
               </tr>
             </thead>
             <tbody>
-              {data.customers.map((c, idx) => (
+              {data.customers!.map((c, idx) => (
                 <tr key={c.customerName} className="border-t border-border hover:bg-muted/40">
                   <td className="px-4 py-2 text-muted-foreground tabular-nums">{idx + 1}</td>
                   <td className="px-4 py-2">
@@ -291,6 +343,8 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
           </table>
         </div>
       </section>
+      </>
+      )}
     </div>
   );
 }
