@@ -5,7 +5,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, Legend, LineChart, Line,
 } from "recharts";
 import {
-  DollarSign, Percent, ShoppingCart, Users, Database, Package, FileText,
+  DollarSign, BadgeDollarSign, ShoppingCart, Users, Database, Package, FileText,
   FileDown, Settings2, Loader2, CalendarRange,
 } from "lucide-react";
 import { KpiCard } from "@/components/dashboard/KpiCard";
@@ -226,7 +226,7 @@ export function DashboardPage() {
           label="Saldo por Cobrar"
           value={fmtMoney(data!.balance, true)}
           hint={data!.balance > 0 ? "Pendiente de pago" : "Cobrado"}
-          icon={Percent}
+          icon={BadgeDollarSign}
           accent={data!.balance > 0 ? "red" : "emerald"}
         />
       </div>
