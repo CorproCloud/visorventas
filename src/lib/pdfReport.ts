@@ -83,6 +83,33 @@ function buildAnalysis(p: ReportPayload): string[] {
     );
   }
 
+  // Conclusión / lectura ejecutiva
+  const positiveSignals = [
+    isFinite(p.revDelta) && p.revDelta >= 0 ? "crecimiento de ingresos" : null,
+    isFinite(p.ticketDelta) && p.ticketDelta >= 0 ? "expansión del ticket medio" : null,
+    isFinite(p.customersDelta) && p.customersDelta >= 0 ? "ampliación de la base de clientes" : null,
+  ].filter(Boolean) as string[];
+  const negativeSignals = [
+    isFinite(p.revDelta) && p.revDelta < 0 ? "contracción de ingresos" : null,
+    isFinite(p.ticketDelta) && p.ticketDelta < 0 ? "disminución del ticket medio" : null,
+    isFinite(p.customersDelta) && p.customersDelta < 0 ? "reducción en clientes activos" : null,
+  ].filter(Boolean) as string[];
+
+  let outlook = "El desempeño global del período se mantiene dentro de parámetros operativos esperados.";
+  if (positiveSignals.length >= 2) {
+    outlook = `Los indicadores reflejan una dinámica favorable, destacando ${positiveSignals.join(", ")}, lo que sugiere consolidar las estrategias comerciales actuales y capitalizar el momentum.`;
+  } else if (negativeSignals.length >= 2) {
+    outlook = `Los indicadores muestran señales de alerta —${negativeSignals.join(", ")}—, por lo que se sugiere revisar la mezcla comercial, políticas de precio y acciones de retención de clientes para revertir la tendencia.`;
+  } else if (positiveSignals.length === 1 && negativeSignals.length === 1) {
+    outlook = `El período presenta resultados mixtos: ${positiveSignals[0]} contrastado con ${negativeSignals[0]}. Se recomienda profundizar el análisis por segmento, categoría y agente para focalizar acciones correctivas.`;
+  }
+
+  paragraphs.push(
+    `${outlook} Las gráficas y rankings que se presentan a continuación detallan la composición ` +
+    `de la facturación por mes, categoría y cliente clave, ofreciendo a la dirección una visión integral ` +
+    `para la toma de decisiones estratégicas.`,
+  );
+
   return paragraphs;
 }
 
