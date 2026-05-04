@@ -144,7 +144,12 @@ export function CatalogPage() {
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filtered.slice(0, visible).map((i, idx) => (
-          <article key={i.code} className="group relative rounded-2xl bg-card border border-border p-5 hover:border-primary/40 hover:shadow-[var(--shadow-md)] transition-all">
+          <Link
+            key={i.code}
+            to="/products/$productCode"
+            params={{ productCode: encodeURIComponent(i.code) }}
+            className="group relative rounded-2xl bg-card border border-border p-5 hover:border-primary/40 hover:shadow-[var(--shadow-md)] transition-all block"
+          >
             <div className="flex items-start justify-between mb-3">
               <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                 <Package className="h-5 w-5" />
@@ -154,7 +159,7 @@ export function CatalogPage() {
               </span>
             </div>
             <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{i.category}</div>
-            <h3 className="mt-1 text-sm font-semibold leading-snug line-clamp-2 min-h-[2.6em]">{i.description}</h3>
+            <h3 className="mt-1 text-sm font-semibold leading-snug group-hover:text-primary transition-colors">{i.description}</h3>
             <div className="mt-1 text-[11px] text-muted-foreground font-mono">{i.code} · {i.unit}</div>
 
             <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
@@ -177,7 +182,7 @@ export function CatalogPage() {
                 }}
               />
             </div>
-          </article>
+          </Link>
         ))}
       </div>
 
