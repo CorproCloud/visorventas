@@ -129,7 +129,7 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
       invoiceCount: number;
       lastDate: string;
     }>();
-    for (const h of hits) {
+    for (const h of fHits) {
       const cur = custMap.get(h.customerName) ?? {
         customerId: h.customerId,
         customerName: h.customerName,
@@ -148,6 +148,7 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
 
     return {
       notFound: false as const,
+      empty: false as const,
       code: decoded,
       description,
       unit,
@@ -157,11 +158,13 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
       avgPrice,
       firstDate,
       lastDate,
-      invoiceCount: hits.length,
+      minDate,
+      maxDate,
+      invoiceCount: fHits.length,
       trend,
       customers,
     };
-  }, [ds, decoded]);
+  }, [ds, decoded, range]);
 
   if (!ds) return <NotFound code={decoded} reason="No hay datasets cargados." />;
   if (!data || data.notFound) return <NotFound code={decoded} reason="No se encontraron ventas para este producto." />;
