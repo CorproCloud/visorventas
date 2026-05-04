@@ -272,6 +272,8 @@ export function CustomerDetailPage({ customerId }: CustomerDetailPageProps) {
           </table>
         </div>
       </section>
+      </>
+      )}
     </div>
   );
 }
