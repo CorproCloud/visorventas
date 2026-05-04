@@ -230,48 +230,50 @@ export async function generateReportPDF(payload: ReportPayload): Promise<void> {
   const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const margin = 40;
-  let y = margin;
+  // Margen izquierdo amplio para respetar la franja roja del membrete
+  const marginLeft = 60;
+  const marginRight = 40;
+  const margin = marginLeft; // alias usado en helpers existentes
+  let y = 40;
 
-  // ===== Header bar (con logo corporativo) =====
-  const headerH = 80;
-  doc.setFillColor(...NAVY);
-  doc.rect(0, 0, pageW, headerH, "F");
+  // ===== Membrete: franja roja vertical izquierda + cabecera con logo =====
+  // Franja roja de borde izquierdo (toda la página, se redibuja en cada página al final)
   doc.setFillColor(...RED);
-  doc.rect(0, headerH, pageW, 4, "F");
+  doc.rect(0, 0, 18, pageH, "F");
 
-  // Logo a la izquierda
+  // Cabecera (fondo blanco, logo + título)
+  const headerH = 80;
   const logoData = await loadLogoDataUrl();
-  let textX = margin;
+  let textX = marginLeft;
   if (logoData) {
     try {
-      const logoSize = 48;
-      // Fondo blanco circular para destacar logo sobre fondo navy
-      doc.setFillColor(255, 255, 255);
-      doc.roundedRect(margin, (headerH - logoSize) / 2, logoSize, logoSize, 8, 8, "F");
-      doc.addImage(logoData, "PNG", margin + 4, (headerH - logoSize) / 2 + 4, logoSize - 8, logoSize - 8);
-      textX = margin + logoSize + 14;
+      const logoSize = 50;
+      doc.addImage(logoData, "PNG", marginLeft, 30, logoSize, logoSize);
+      textX = marginLeft + logoSize + 14;
     } catch (e) {
       console.error("No se pudo dibujar el logo en el PDF", e);
     }
   }
 
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(20, 20, 30);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
-  doc.text("Visor Ventas", textX, 36);
+  doc.setFontSize(20);
+  doc.text("Visor Ventas", textX, 56);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.text("Reporte ejecutivo de desempeño comercial", textX, 56);
+  doc.setTextColor(...GRAY);
+  doc.text("Reporte ejecutivo de desempeño comercial", textX, 74);
 
+  doc.setTextColor(40, 40, 50);
   doc.setFontSize(9);
   const today = new Date().toLocaleDateString("es-MX", {
     day: "2-digit", month: "long", year: "numeric",
   });
-  doc.text(`Generado: ${today}`, pageW - margin, 36, { align: "right" });
-  doc.text(`Período: ${payload.periodLabel}`, pageW - margin, 56, { align: "right" });
+  doc.text(`Generado: ${today}`, pageW - marginRight, 56, { align: "right" });
+  doc.text(`Período: ${payload.periodLabel}`, pageW - marginRight, 74, { align: "right" });
 
-  y = headerH + 30;
+  y = 30 + headerH + 20;
+
 
   // ===== Section title =====
   doc.setTextColor(...NAVY);
