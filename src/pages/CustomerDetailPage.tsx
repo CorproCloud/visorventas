@@ -26,10 +26,34 @@ export function CustomerDetailPage({ customerId }: CustomerDetailPageProps) {
 
   const data = useMemo(() => {
     if (!ds) return null;
-    const invs = ds.invoices.filter(
+    const allInvs = ds.invoices.filter(
       (i) => safeId(i.customerName) === customerId || i.customerName === decoded,
     );
-    if (invs.length === 0) return { invoices: [], notFound: true } as const;
+    if (allInvs.length === 0) return { invoices: [], notFound: true } as const;
+
+    // Rango global de fechas del cliente (para los límites del filtro)
+    const allDates = allInvs.map((i) => i.date).sort();
+    const minDate = allDates[0];
+    const maxDate = allDates[allDates.length - 1];
+
+    // Aplicar filtro de rango temporal
+    const invs = allInvs.filter((i) => {
+      if (range.from && i.date < range.from) return false;
+      if (range.to && i.date > range.to) return false;
+      return true;
+    });
+
+    if (invs.length === 0) {
+      return {
+        invoices: [],
+        notFound: false as const,
+        empty: true as const,
+        minDate, maxDate,
+        customerName: allInvs[0].customerName,
+        internalId: allInvs[0].customerId,
+        agent: allInvs[0].agentId,
+      };
+    }
 
     const totalRev = invs.reduce((a, i) => a + i.total, 0);
     const subtotal = invs.reduce((a, i) => a + i.subtotal, 0);
@@ -41,11 +65,13 @@ export function CustomerDetailPage({ customerId }: CustomerDetailPageProps) {
     const lastDate = dates.at(-1)!;
     const monthSet = new Set(invs.map((i) => i.yearMonth));
 
-    // Tendencia mensual de este cliente
+    // Tendencia mensual de este cliente (solo meses dentro del rango filtrado)
+    const filteredMonths = ds.months.filter((m) => monthSet.has(m));
     const monthlyMap = new Map<string, { ym: string; ventas: number; facturas: number }>();
-    for (const m of ds.months) monthlyMap.set(m, { ym: m, ventas: 0, facturas: 0 });
+    for (const m of filteredMonths) monthlyMap.set(m, { ym: m, ventas: 0, facturas: 0 });
     for (const i of invs) {
-      const cur = monthlyMap.get(i.yearMonth)!;
+      const cur = monthlyMap.get(i.yearMonth);
+      if (!cur) continue;
       cur.ventas += i.total;
       cur.facturas += 1;
     }
@@ -71,15 +97,17 @@ export function CustomerDetailPage({ customerId }: CustomerDetailPageProps) {
 
     return {
       invoices: invs,
-      notFound: false,
+      notFound: false as const,
+      empty: false as const,
       totalRev, subtotal, balance, totalUnits, avgTicket,
       firstDate, lastDate, activeMonths: monthSet.size,
+      minDate, maxDate,
       trend, topProducts,
       customerName: invs[0].customerName,
       internalId: invs[0].customerId,
       agent: invs[0].agentId,
-    } as const;
-  }, [ds, customerId, decoded]);
+    };
+  }, [ds, customerId, decoded, range]);
 
   if (!ds) {
     return <NotFound name={decoded} reason="No hay datasets cargados." />;
