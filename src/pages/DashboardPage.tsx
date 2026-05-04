@@ -5,7 +5,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, Legend, LineChart, Line,
 } from "recharts";
 import {
-  DollarSign, Percent, ShoppingCart, Users, Database, Package, FileText,
+  DollarSign, BadgeDollarSign, ShoppingCart, Users, Database, Package, FileText,
   FileDown, Settings2, Loader2, CalendarRange,
 } from "lucide-react";
 import { KpiCard } from "@/components/dashboard/KpiCard";
