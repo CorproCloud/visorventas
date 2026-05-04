@@ -116,6 +116,8 @@ export function CustomerDetailPage({ customerId }: CustomerDetailPageProps) {
     return <NotFound name={decoded} reason="No se encontraron facturas para este cliente." />;
   }
 
+  const empty = data.empty === true;
+
   return (
     <div className="px-4 sm:px-8 py-6 sm:py-8 max-w-[1500px] mx-auto">
       <Link to="/" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-3">
@@ -127,24 +129,50 @@ export function CustomerDetailPage({ customerId }: CustomerDetailPageProps) {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1.5">
           <span className="font-mono">Cliente {data.internalId}</span>
           {data.agent && <span className="inline-flex items-center gap-1"><Mail className="h-3 w-3" /> Agente {data.agent}</span>}
-          <span className="inline-flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            {fmtDate(data.firstDate)} → {fmtDate(data.lastDate)}
-          </span>
-          <span>{data.activeMonths} meses activos</span>
+          {!empty && data.firstDate && data.lastDate && (
+            <>
+              <span className="inline-flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                {fmtDate(data.firstDate)} → {fmtDate(data.lastDate)}
+              </span>
+              <span>{data.activeMonths} meses activos</span>
+            </>
+          )}
+        </div>
+        <div className="mt-4">
+          <DateRangeFilter
+            range={range}
+            onChange={setRange}
+            min={data.minDate}
+            max={data.maxDate}
+          />
         </div>
       </header>
 
+      {empty ? (
+        <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
+          <p className="text-sm text-muted-foreground">
+            No hay consumo registrado para el rango seleccionado.
+          </p>
+          <button
+            onClick={() => setRange({ from: null, to: null })}
+            className="mt-3 text-xs text-primary hover:underline"
+          >
+            Limpiar filtro
+          </button>
+        </div>
+      ) : (
+      <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Facturado total" value={fmtMoney(data.totalRev, true)}
-          hint={`Subtotal ${fmtMoney(data.subtotal, true)}`} icon={DollarSign} accent="navy" />
+        <KpiCard label="Facturado total" value={fmtMoney(data.totalRev!, true)}
+          hint={`Subtotal ${fmtMoney(data.subtotal!, true)}`} icon={DollarSign} accent="navy" />
         <KpiCard label="Facturas" value={fmtNumber(data.invoices.length)}
-          hint={`${fmtNumber(data.totalUnits)} unidades`} icon={FileText} accent="emerald" />
-        <KpiCard label="Ticket medio" value={fmtMoney(data.avgTicket)}
+          hint={`${fmtNumber(data.totalUnits!)} unidades`} icon={FileText} accent="emerald" />
+        <KpiCard label="Ticket medio" value={fmtMoney(data.avgTicket!)}
           hint="por factura" icon={ShoppingCart} accent="slate" />
-        <KpiCard label="Saldo pendiente" value={fmtMoney(data.balance, true)}
-          hint={data.balance > 0 ? "Por cobrar" : "Cobrado"} icon={Wallet}
-          accent={data.balance > 0 ? "red" : "emerald"} />
+        <KpiCard label="Saldo pendiente" value={fmtMoney(data.balance!, true)}
+          hint={(data.balance ?? 0) > 0 ? "Por cobrar" : "Cobrado"} icon={Wallet}
+          accent={(data.balance ?? 0) > 0 ? "red" : "emerald"} />
       </div>
 
       <div className="mt-6 grid lg:grid-cols-3 gap-4">
