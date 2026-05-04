@@ -142,18 +142,35 @@ export function CustomerDetailPage({ customerId }: CustomerDetailPageProps) {
 
         <div className="rounded-2xl bg-card border border-border p-5">
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"><Package className="h-4 w-4 text-primary" /> Productos top</h3>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={data.topProducts.slice(0, 6).map((p) => ({
-              name: p.description.length > 18 ? p.description.slice(0, 16) + "…" : p.description,
-              ventas: Math.round(p.net),
-            }))} layout="vertical" margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" hide />
-              <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={10} tickLine={false} axisLine={false} width={110} />
-              <Tooltip contentStyle={tooltipStyle} formatter={((v: unknown) => fmtMoney(Number(v))) as never} cursor={{ fill: "var(--muted)" }} />
-              <Bar dataKey="ventas" fill="var(--chart-2)" radius={[0, 6, 6, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <ul className="space-y-2.5">
+            {data.topProducts.slice(0, 8).map((p, idx) => {
+              const max = data.topProducts[0]?.net || 1;
+              const pct = (p.net / max) * 100;
+              return (
+                <li key={p.code}>
+                  <Link
+                    to="/products/$productCode"
+                    params={{ productCode: encodeURIComponent(p.code) }}
+                    className="block group"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-1">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-medium leading-snug group-hover:text-primary transition-colors">
+                          <span className="text-muted-foreground mr-1.5">#{idx + 1}</span>
+                          {p.description}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground font-mono mt-0.5">{p.code} · {fmtNumber(p.units)} u.</div>
+                      </div>
+                      <div className="text-xs font-semibold tabular-nums shrink-0">{fmtMoney(p.net, true)}</div>
+                    </div>
+                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-[var(--chart-2)]" style={{ width: `${pct}%` }} />
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </div>
 
