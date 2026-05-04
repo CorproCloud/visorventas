@@ -406,29 +406,26 @@ export async function generateReportPDF(payload: ReportPayload): Promise<void> {
     });
   }
 
-  // ===== Footer en todas las páginas =====
+  // ===== Membrete + Footer en todas las páginas =====
   const total = doc.getNumberOfPages();
   for (let i = 1; i <= total; i++) {
     doc.setPage(i);
+
+    // Franja roja izquierda (membrete) en todas las páginas
+    doc.setFillColor(...RED);
+    doc.rect(0, 0, 18, pageH, "F");
+
+    // Línea separadora del pie
     doc.setDrawColor(...LIGHT);
     doc.setLineWidth(0.5);
-    doc.line(margin, pageH - 40, pageW - margin, pageH - 40);
+    doc.line(marginLeft, pageH - 40, pageW - marginRight, pageH - 40);
+
+    // Crédito + paginación (estilo membrete)
     doc.setTextColor(...GRAY);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text("Visor de Ventas - Reporte ejecutivo confidencial", margin, pageH - 26);
-    doc.text(`Pagina ${i} de ${total}`, pageW - margin, pageH - 26, { align: "right" });
-
-    // Crédito de marca centrado
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7.5);
-    doc.setTextColor(120, 130, 150);
-    doc.text(
-      "Desarrollado por Miguel M. Navarro.",
-      pageW / 2,
-      pageH - 12,
-      { align: "center" },
-    );
+    doc.setFontSize(8.5);
+    doc.text("Desarrollado por Miguel M. Navarro.", marginLeft, pageH - 24);
+    doc.text(`Pagina ${i} de ${total}`, pageW - marginRight, pageH - 24, { align: "right" });
   }
 
   const safeLabel = payload.periodLabel.replace(/[^\w\-]+/g, "_");
