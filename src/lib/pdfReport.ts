@@ -1,6 +1,28 @@
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas-pro";
 import { fmtMoney, fmtNumber, fmtPct, fmtMonth } from "@/lib/format";
+import logoUrl from "@/assets/logo-report.png";
+
+// Cargar el logo como dataURL una sola vez (lazy)
+let _logoDataUrl: string | null = null;
+async function loadLogoDataUrl(): Promise<string | null> {
+  if (_logoDataUrl) return _logoDataUrl;
+  try {
+    const res = await fetch(logoUrl);
+    const blob = await res.blob();
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    _logoDataUrl = dataUrl;
+    return dataUrl;
+  } catch (e) {
+    console.error("No se pudo cargar el logo del reporte", e);
+    return null;
+  }
+}
 
 export interface ReportPayload {
   periodLabel: string;
