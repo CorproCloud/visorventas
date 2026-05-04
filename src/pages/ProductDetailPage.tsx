@@ -224,7 +224,7 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
           hint={`Unidad: ${data.unit}`} icon={ShoppingCart} accent="emerald" />
         <KpiCard label="Precio promedio" value={fmtMoney(data.avgPrice!)}
           hint="Por unidad" icon={TrendingUp} accent="slate" />
-        <KpiCard label="Clientes" value={fmtNumber(data.customers!.length)}
+        <KpiCard label="Clientes" value={fmtNumber(data.customers!!.length)}
           hint="que compran este producto" icon={Users} accent="navy" />
       </div>
 
@@ -253,10 +253,10 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
           </div>
         </div>
         <div className="overflow-x-auto pb-2 -mx-1 px-1">
-          <div style={{ minWidth: Math.max(data.trend.length * 60, 600), height: 320 }}>
+          <div style={{ minWidth: Math.max(data.trend!.length * 60, 600), height: 320 }}>
             <ResponsiveContainer width="100%" height="100%">
               {chart === "area" ? (
-                <AreaChart data={data.trend} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                <AreaChart data={data.trend!} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="prod-grad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.55} />
@@ -273,7 +273,7 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
                   <Area type="monotone" dataKey="ventas" stroke="var(--chart-1)" strokeWidth={2.5} fill="url(#prod-grad)" />
                 </AreaChart>
               ) : chart === "bar" ? (
-                <BarChart data={data.trend} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                <BarChart data={data.trend!} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="period" stroke="var(--muted-foreground)" fontSize={11}
                     tickLine={false} axisLine={false} interval={0} angle={-25} textAnchor="end" height={50} />
@@ -284,7 +284,7 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
                   <Bar dataKey="ventas" fill="var(--chart-1)" radius={[6, 6, 0, 0]} />
                 </BarChart>
               ) : (
-                <LineChart data={data.trend} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                <LineChart data={data.trend!} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="period" stroke="var(--muted-foreground)" fontSize={11}
                     tickLine={false} axisLine={false} interval={0} angle={-25} textAnchor="end" height={50} />
@@ -304,7 +304,7 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
       {/* Clientes que compran este producto */}
       <section className="mt-6 rounded-2xl bg-card border border-border overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
-          <h3 className="text-sm font-semibold">Clientes que compran este producto ({data.customers.length})</h3>
+          <h3 className="text-sm font-semibold">Clientes que compran este producto ({data.customers!.length})</h3>
           <p className="text-xs text-muted-foreground mt-0.5">Ordenados por facturación. Click para ver detalle del cliente.</p>
         </div>
         <div className="overflow-x-auto max-h-[60vh]">
@@ -320,7 +320,7 @@ export function ProductDetailPage({ productCode }: ProductDetailPageProps) {
               </tr>
             </thead>
             <tbody>
-              {data.customers.map((c, idx) => (
+              {data.customers!.map((c, idx) => (
                 <tr key={c.customerName} className="border-t border-border hover:bg-muted/40">
                   <td className="px-4 py-2 text-muted-foreground tabular-nums">{idx + 1}</td>
                   <td className="px-4 py-2">
