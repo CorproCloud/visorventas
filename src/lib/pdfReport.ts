@@ -1,6 +1,28 @@
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas-pro";
 import { fmtMoney, fmtNumber, fmtPct, fmtMonth } from "@/lib/format";
+import logoUrl from "@/assets/logo-report.png";
+
+// Cargar el logo como dataURL una sola vez (lazy)
+let _logoDataUrl: string | null = null;
+async function loadLogoDataUrl(): Promise<string | null> {
+  if (_logoDataUrl) return _logoDataUrl;
+  try {
+    const res = await fetch(logoUrl);
+    const blob = await res.blob();
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    _logoDataUrl = dataUrl;
+    return dataUrl;
+  } catch (e) {
+    console.error("No se pudo cargar el logo del reporte", e);
+    return null;
+  }
+}
 
 export interface ReportPayload {
   periodLabel: string;
@@ -60,6 +82,33 @@ function buildAnalysis(p: ReportPayload): string[] {
       `Esta situación refleja una sana política de cobranza y disciplina financiera con los clientes.`,
     );
   }
+
+  // Conclusión / lectura ejecutiva
+  const positiveSignals = [
+    isFinite(p.revDelta) && p.revDelta >= 0 ? "crecimiento de ingresos" : null,
+    isFinite(p.ticketDelta) && p.ticketDelta >= 0 ? "expansión del ticket medio" : null,
+    isFinite(p.customersDelta) && p.customersDelta >= 0 ? "ampliación de la base de clientes" : null,
+  ].filter(Boolean) as string[];
+  const negativeSignals = [
+    isFinite(p.revDelta) && p.revDelta < 0 ? "contracción de ingresos" : null,
+    isFinite(p.ticketDelta) && p.ticketDelta < 0 ? "disminución del ticket medio" : null,
+    isFinite(p.customersDelta) && p.customersDelta < 0 ? "reducción en clientes activos" : null,
+  ].filter(Boolean) as string[];
+
+  let outlook = "El desempeño global del período se mantiene dentro de parámetros operativos esperados.";
+  if (positiveSignals.length >= 2) {
+    outlook = `Los indicadores reflejan una dinámica favorable, destacando ${positiveSignals.join(", ")}, lo que sugiere consolidar las estrategias comerciales actuales y capitalizar el momentum.`;
+  } else if (negativeSignals.length >= 2) {
+    outlook = `Los indicadores muestran señales de alerta —${negativeSignals.join(", ")}—, por lo que se sugiere revisar la mezcla comercial, políticas de precio y acciones de retención de clientes para revertir la tendencia.`;
+  } else if (positiveSignals.length === 1 && negativeSignals.length === 1) {
+    outlook = `El período presenta resultados mixtos: ${positiveSignals[0]} contrastado con ${negativeSignals[0]}. Se recomienda profundizar el análisis por segmento, categoría y agente para focalizar acciones correctivas.`;
+  }
+
+  paragraphs.push(
+    `${outlook} Las gráficas y rankings que se presentan a continuación detallan la composición ` +
+    `de la facturación por mes, categoría y cliente clave, ofreciendo a la dirección una visión integral ` +
+    `para la toma de decisiones estratégicas.`,
+  );
 
   return paragraphs;
 }
@@ -184,28 +233,45 @@ export async function generateReportPDF(payload: ReportPayload): Promise<void> {
   const margin = 40;
   let y = margin;
 
-  // ===== Header bar =====
+  // ===== Header bar (con logo corporativo) =====
+  const headerH = 80;
   doc.setFillColor(...NAVY);
-  doc.rect(0, 0, pageW, 70, "F");
+  doc.rect(0, 0, pageW, headerH, "F");
   doc.setFillColor(...RED);
-  doc.rect(0, 70, pageW, 4, "F");
+  doc.rect(0, headerH, pageW, 4, "F");
+
+  // Logo a la izquierda
+  const logoData = await loadLogoDataUrl();
+  let textX = margin;
+  if (logoData) {
+    try {
+      const logoSize = 48;
+      // Fondo blanco circular para destacar logo sobre fondo navy
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(margin, (headerH - logoSize) / 2, logoSize, logoSize, 8, 8, "F");
+      doc.addImage(logoData, "PNG", margin + 4, (headerH - logoSize) / 2 + 4, logoSize - 8, logoSize - 8);
+      textX = margin + logoSize + 14;
+    } catch (e) {
+      console.error("No se pudo dibujar el logo en el PDF", e);
+    }
+  }
 
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
-  doc.text("", margin, 32);
+  doc.text("Visor Ventas", textX, 36);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.text("Reporte ejecutivo de desempeño comercial", margin, 50);
+  doc.text("Reporte ejecutivo de desempeño comercial", textX, 56);
 
   doc.setFontSize(9);
   const today = new Date().toLocaleDateString("es-MX", {
     day: "2-digit", month: "long", year: "numeric",
   });
-  doc.text(`Generado: ${today}`, pageW - margin, 32, { align: "right" });
-  doc.text(`Período: ${payload.periodLabel}`, pageW - margin, 50, { align: "right" });
+  doc.text(`Generado: ${today}`, pageW - margin, 36, { align: "right" });
+  doc.text(`Período: ${payload.periodLabel}`, pageW - margin, 56, { align: "right" });
 
-  y = 100;
+  y = headerH + 30;
 
   // ===== Section title =====
   doc.setTextColor(...NAVY);

@@ -107,7 +107,7 @@ export function DashboardPage() {
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 10)
       .map((c) => ({
-        name: c.name.length > 24 ? c.name.slice(0, 22) + "…" : c.name,
+        name: c.name,
         fullName: c.name,
         ventas: Math.round(c.revenue),
       }));
@@ -357,17 +357,21 @@ export function DashboardPage() {
         </ChartCard>
 
         <ChartCard id="pdf-chart-top" title="Top 10 clientes" subtitle="Por facturación en el período">
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={data!.topCustomers} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false}
-                tickFormatter={(v) => fmtNumber(v, true)} />
-              <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={10} tickLine={false}
-                axisLine={false} width={150} />
-              <Tooltip contentStyle={tooltipStyle} formatter={((v: unknown) => fmtMoney(Number(v))) as never} cursor={{ fill: "var(--muted)" }} />
-              <Bar dataKey="ventas" fill="var(--chart-2)" radius={[0, 6, 6, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="overflow-x-auto">
+            <div style={{ minWidth: 520, height: Math.max(320, data!.topCustomers.length * 38) }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data!.topCustomers} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false}
+                    tickFormatter={(v) => fmtNumber(v, true)} />
+                  <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={10} tickLine={false}
+                    axisLine={false} width={260} interval={0} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={((v: unknown) => fmtMoney(Number(v))) as never} cursor={{ fill: "var(--muted)" }} />
+                  <Bar dataKey="ventas" fill="var(--chart-2)" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </ChartCard>
       </div>
 
@@ -389,7 +393,7 @@ export function DashboardPage() {
                 className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-muted hover:bg-primary hover:text-primary-foreground transition-colors"
               >
                 <Users className="h-3.5 w-3.5" />
-                {c.fullName.length > 30 ? c.fullName.slice(0, 28) + "…" : c.fullName}
+                {c.fullName}
               </Link>
             ))}
           </div>
