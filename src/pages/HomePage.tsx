@@ -16,7 +16,6 @@ type SortDir = "asc" | "desc";
 export function HomePage() {
   const datasets = useDataStore((s) => s.datasets);
   const activeId = useDataStore((s) => s.activeDatasetId);
-  const setActive = useDataStore((s) => s.setActive);
   const active = datasets.find((d) => d.id === activeId);
 
   const [query, setQuery] = useState("");
@@ -254,28 +253,6 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Datasets switcher */}
-      {datasets.length > 1 && (
-        <div className="mt-5 flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1.5">
-            <Database className="h-3 w-3" /> Datasets
-          </span>
-          {datasets.map((d, i) => (
-            <button
-              key={d.id}
-              onClick={() => setActive(d.id)}
-              className={cn(
-                "px-2.5 py-1 rounded-md text-xs font-medium border transition-colors",
-                d.id === activeId
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card border-border hover:border-primary/40",
-              )}
-            >
-              Dataset {i + 1}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
