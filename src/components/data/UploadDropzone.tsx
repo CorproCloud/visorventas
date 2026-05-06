@@ -1,13 +1,13 @@
 import { useCallback, useState } from "react";
 import { Upload, FileSpreadsheet, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import { parseFile } from "@/lib/parser";
 import { useDataStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 export function UploadDropzone({ compact = false, onComplete }: { compact?: boolean; onComplete?: () => void }) {
-  const addDataset = useDataStore((s) => s.addDataset);
+  const uploadFile = useDataStore((s) => s.uploadFile);
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [progressMsg, setProgressMsg] = useState<string>("");
   const [status, setStatus] = useState<{ type: "ok" | "err"; msg: string } | null>(null);
 
   const handleFiles = useCallback(
@@ -17,27 +17,19 @@ export function UploadDropzone({ compact = false, onComplete }: { compact?: bool
       setBusy(true);
       setStatus(null);
       try {
-        let imported = 0;
         for (const file of arr) {
-          const invoices = await parseFile(file);
-          if (invoices.length === 0) {
-            setStatus({ type: "err", msg: `${file.name}: no se detectaron facturas válidas.` });
-            continue;
-          }
-          addDataset(file.name.replace(/\.[^.]+$/, ""), invoices);
-          imported += invoices.length;
+          await uploadFile(file, (m) => setProgressMsg(m));
         }
-        if (imported > 0) {
-          setStatus({ type: "ok", msg: `${imported.toLocaleString("es-MX")} facturas importadas correctamente.` });
-          onComplete?.();
-        }
+        setStatus({ type: "ok", msg: `${arr.length} archivo(s) subido(s) correctamente.` });
+        onComplete?.();
       } catch (e) {
         setStatus({ type: "err", msg: e instanceof Error ? e.message : "Error desconocido" });
       } finally {
         setBusy(false);
+        setProgressMsg("");
       }
     },
-    [addDataset, onComplete],
+    [uploadFile, onComplete],
   );
 
   return (
@@ -68,11 +60,11 @@ export function UploadDropzone({ compact = false, onComplete }: { compact?: bool
           {busy ? <Loader2 className="h-6 w-6 text-primary animate-spin" /> : <Upload className="h-6 w-6 text-primary" />}
         </div>
         <div className="text-sm font-semibold text-foreground">
-          {busy ? "Procesando facturas..." : "Arrastra o haz clic para subir"}
+          {busy ? (progressMsg || "Procesando...") : "Arrastra o haz clic para subir"}
         </div>
         <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
           <FileSpreadsheet className="h-3.5 w-3.5" />
-          Excel (.xlsx, .xls) o CSV — Consecutivo de Facturas
+          Excel (.xlsx, .xls) o CSV — Se guarda en la nube
         </div>
       </label>
 

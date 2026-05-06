@@ -1,5 +1,6 @@
 import { Outlet, createRootRoute, HeadContent, Scripts, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/layout/AppShell";
+import { useCloudBootstrap } from "@/hooks/useCloudBootstrap";
 
 import appCss from "../styles.css?url";
 
@@ -68,6 +69,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
+  useCloudBootstrap();
   return (
     <AppShell>
       <Outlet />
