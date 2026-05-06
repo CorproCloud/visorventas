@@ -43,16 +43,12 @@ export function DataPage() {
             <Database className="h-4 w-4 text-primary" />
             Cargar nuevo archivo
           </h2>
-          <p className="text-xs text-muted-foreground mb-4">
-            Soporta el reporte ERP "Consecutivo de Facturas Desglosado de Ventas" (.xls / .xlsx / .csv).
-            Los archivos se guardan de forma persistente en la nube.
+          <p className="text-xs text-muted-foreground mb-4 whitespace-pre-line">
+            Soporta el reporte ERP "Consecutivo de Facturas Desglosado de Ventas" (.xls / .xlsx / .csv). Los archivos se guardan de forma persistente en la nube.
           </p>
           <UploadDropzone />
-          <div className="mt-4 text-xs text-muted-foreground space-y-1">
-            <p className="font-medium text-foreground">{"\n"}</p>
-            <p>· Sin límites del navegador para archivos grandes (varios años).</p>
-            <p>{"\n"}</p>
-            <p>· Puedes activar/desactivar y combinar múltiples archivos.</p>
+          <div className="mt-4 text-xs text-muted-foreground whitespace-pre-line">
+            {"\n\n\u00A0\n\n\u00A0"}
           </div>
         </section>
 
