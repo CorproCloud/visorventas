@@ -51,7 +51,7 @@ export function DataPage() {
           <div className="mt-4 text-xs text-muted-foreground space-y-1">
             <p className="font-medium text-foreground">{"\n"}</p>
             <p>· Sin límites del navegador para archivos grandes (varios años).</p>
-            <p>· Los datos persisten entre sesiones y dispositivos.</p>
+            <p>{"\n"}</p>
             <p>· Puedes activar/desactivar y combinar múltiples archivos.</p>
           </div>
         </section>
