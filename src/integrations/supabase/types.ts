@@ -14,7 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      datasets: {
+        Row: {
+          created_at: string
+          date_from: string | null
+          date_to: string | null
+          file_path: string
+          file_size: number
+          id: string
+          invoice_count: number
+          is_active: boolean
+          line_count: number
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          date_from?: string | null
+          date_to?: string | null
+          file_path: string
+          file_size?: number
+          id?: string
+          invoice_count?: number
+          is_active?: boolean
+          line_count?: number
+          name: string
+        }
+        Update: {
+          created_at?: string
+          date_from?: string | null
+          date_to?: string | null
+          file_path?: string
+          file_size?: number
+          id?: string
+          invoice_count?: number
+          is_active?: boolean
+          line_count?: number
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
