@@ -1,27 +1,25 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { Dataset, Invoice } from "./types";
+import {
+  listCloudFiles,
+  uploadCloudFile,
+  setCloudFileActive,
+  deleteCloudFile,
+  loadInvoicesFor,
+  clearInvoiceCache,
+  type CloudFile,
+} from "./cloudFiles";
 
-interface DataState {
-  datasets: Dataset[];
-  activeDatasetId: string | null;
-  selectedYear: string | null;       // filtro yyyy o null = todos
-  selectedMonth: string | null;      // filtro yyyy-mm o null = todos
-  addDataset: (name: string, invoices: Invoice[]) => string;
-  removeDataset: (id: string) => void;
-  setActive: (id: string | null) => void;
-  setYear: (y: string | null) => void;
-  setMonth: (m: string | null) => void;
-  clearAll: () => void;
-}
+const MERGED_ID = "merged-active";
 
-function buildDataset(name: string, invoices: Invoice[]): Dataset {
+function buildMerged(name: string, invoices: Invoice[]): Dataset {
   const months = Array.from(new Set(invoices.map((i) => i.yearMonth))).sort();
   const years = Array.from(new Set(invoices.map((i) => i.year))).sort();
   const dates = invoices.map((i) => i.date).sort();
   const lineCount = invoices.reduce((a, i) => a + i.lines.length, 0);
   return {
-    id: `ds-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    id: MERGED_ID,
     name,
     uploadedAt: Date.now(),
     invoices,
@@ -33,43 +31,103 @@ function buildDataset(name: string, invoices: Invoice[]): Dataset {
   };
 }
 
+interface DataState {
+  // Cloud file metadata (lightweight)
+  cloudFiles: CloudFile[];
+  loading: boolean;
+  syncing: boolean;
+  // In-memory merged dataset built from active cloud files
+  datasets: Dataset[];
+  activeDatasetId: string | null;
+  // Filters (persisted)
+  selectedYear: string | null;
+  selectedMonth: string | null;
+
+  // Actions
+  refreshCloudFiles: () => Promise<void>;
+  rebuildActive: () => Promise<void>;
+  uploadFile: (file: File, onProgress?: (msg: string) => void) => Promise<void>;
+  toggleActive: (id: string, value: boolean) => Promise<void>;
+  removeFile: (id: string) => Promise<void>;
+  setYear: (y: string | null) => void;
+  setMonth: (m: string | null) => void;
+}
+
 export const useDataStore = create<DataState>()(
   persist(
     (set, get) => ({
+      cloudFiles: [],
+      loading: false,
+      syncing: false,
       datasets: [],
       activeDatasetId: null,
       selectedYear: null,
       selectedMonth: null,
 
-      addDataset: (name, invoices) => {
-        const ds = buildDataset(name, invoices);
-        set({
-          datasets: [...get().datasets, ds],
-          activeDatasetId: ds.id,
-          selectedYear: null,
-          selectedMonth: null,
-        });
-        return ds.id;
+      refreshCloudFiles: async () => {
+        set({ loading: true });
+        try {
+          const files = await listCloudFiles();
+          set({ cloudFiles: files });
+          await get().rebuildActive();
+        } finally {
+          set({ loading: false });
+        }
       },
 
-      removeDataset: (id) => {
-        const remaining = get().datasets.filter((d) => d.id !== id);
-        const wasActive = get().activeDatasetId === id;
-        set({
-          datasets: remaining,
-          activeDatasetId: wasActive ? remaining[0]?.id ?? null : get().activeDatasetId,
-          selectedYear: wasActive ? null : get().selectedYear,
-          selectedMonth: wasActive ? null : get().selectedMonth,
-        });
+      rebuildActive: async () => {
+        const active = get().cloudFiles.filter((f) => f.is_active);
+        if (active.length === 0) {
+          set({ datasets: [], activeDatasetId: null });
+          return;
+        }
+        set({ syncing: true });
+        try {
+          const all: Invoice[] = [];
+          for (const f of active) {
+            const inv = await loadInvoicesFor(f);
+            all.push(...inv);
+          }
+          const name = active.length === 1 ? active[0].name : `${active.length} archivos combinados`;
+          const merged = buildMerged(name, all);
+          set({ datasets: [merged], activeDatasetId: MERGED_ID });
+        } finally {
+          set({ syncing: false });
+        }
       },
 
-      setActive: (id) => set({ activeDatasetId: id, selectedYear: null, selectedMonth: null }),
+      uploadFile: async (file, onProgress) => {
+        await uploadCloudFile(file, onProgress);
+        await get().refreshCloudFiles();
+      },
+
+      toggleActive: async (id, value) => {
+        await setCloudFileActive(id, value);
+        set({
+          cloudFiles: get().cloudFiles.map((f) => (f.id === id ? { ...f, is_active: value } : f)),
+        });
+        await get().rebuildActive();
+      },
+
+      removeFile: async (id) => {
+        const file = get().cloudFiles.find((f) => f.id === id);
+        if (!file) return;
+        await deleteCloudFile(file);
+        clearInvoiceCache(id);
+        set({ cloudFiles: get().cloudFiles.filter((f) => f.id !== id) });
+        await get().rebuildActive();
+      },
+
       setYear: (y) => set({ selectedYear: y, selectedMonth: null }),
       setMonth: (m) => set({ selectedMonth: m }),
-      clearAll: () => set({ datasets: [], activeDatasetId: null, selectedYear: null, selectedMonth: null }),
     }),
     {
-      name: "pulse-bi-store-v2",
+      name: "visor-ventas-prefs-v3",
+      // Only persist filter prefs — never invoices/files (avoids quota errors)
+      partialize: (s) => ({
+        selectedYear: s.selectedYear,
+        selectedMonth: s.selectedMonth,
+      }),
       storage: createJSONStorage(() => {
         if (typeof window === "undefined") {
           return { getItem: () => null, setItem: () => {}, removeItem: () => {} };
@@ -79,12 +137,6 @@ export const useDataStore = create<DataState>()(
     },
   ),
 );
-
-// Helpers
-export const getActive = (): Dataset | null => {
-  const { datasets, activeDatasetId } = useDataStore.getState();
-  return datasets.find((d) => d.id === activeDatasetId) ?? null;
-};
 
 // Filtrado de facturas por filtros activos
 export function filterInvoices(
