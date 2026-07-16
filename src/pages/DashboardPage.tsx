@@ -13,8 +13,14 @@ import { PeriodSelector } from "@/components/layout/PeriodSelector";
 import { useDataStore, filterInvoices } from "@/lib/store";
 import { fmtMoney, fmtNumber, fmtPct, fmtMonth, fmtDate, safeId } from "@/lib/format";
 import { generateReportPDF } from "@/lib/pdfReport";
+import {
+  buildConsumptionReport,
+  exportConsumptionExcel,
+  exportConsumptionPDF,
+} from "@/lib/customerConsumptionReport";
 import { cn } from "@/lib/utils";
 import type { Invoice } from "@/lib/types";
+import { FileSpreadsheet, Users as UsersIcon } from "lucide-react";
 
 // Paleta amplia, sin repeticiones (15 tonos)
 const CATEGORY_PALETTE = [
