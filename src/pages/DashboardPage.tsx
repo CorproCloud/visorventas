@@ -529,6 +529,87 @@ export function DashboardPage() {
           </div>
         </div>
       </section>
+
+      {/* ===== Reporte de Consumo por Cliente (Excel / PDF) ===== */}
+      <section className="mt-6 rounded-2xl bg-card border border-border p-6 sm:p-8 shadow-[var(--shadow-sm)]">
+        <div className="flex items-start gap-3 mb-5">
+          <div className="h-10 w-10 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+            <UsersIcon className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold tracking-tight">Consumo por Cliente</h3>
+            <p className="text-sm text-muted-foreground mt-0.5 max-w-2xl">
+              Genera un reporte con los clientes que consumieron en el período seleccionado,
+              desglosando el consumo mes a mes (N° cliente, nombre y total por mes/año).
+              Disponible en Excel y PDF. Si dejas las fechas en blanco, se usará todo el rango disponible.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-[1fr_1fr_auto_auto] gap-3 items-end">
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 flex items-center gap-1.5">
+              <CalendarRange className="h-3.5 w-3.5" /> Desde
+            </label>
+            <input
+              type="date"
+              value={consFrom}
+              min={ds.dateRange.from}
+              max={ds.dateRange.to}
+              onChange={(e) => setConsFrom(e.target.value)}
+              className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 flex items-center gap-1.5">
+              <CalendarRange className="h-3.5 w-3.5" /> Hasta
+            </label>
+            <input
+              type="date"
+              value={consTo}
+              min={consFrom || ds.dateRange.from}
+              max={ds.dateRange.to}
+              onChange={(e) => setConsTo(e.target.value)}
+              className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+          <button
+            onClick={() => handleConsumption("xlsx")}
+            disabled={consBusy !== null}
+            className="h-10 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 text-white px-4 text-sm font-semibold shadow-[var(--shadow-sm)] hover:opacity-90 disabled:opacity-60 transition-opacity whitespace-nowrap"
+          >
+            {consBusy === "xlsx" ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Generando...</>
+            ) : (
+              <><FileSpreadsheet className="h-4 w-4" /> Excel</>
+            )}
+          </button>
+          <button
+            onClick={() => handleConsumption("pdf")}
+            disabled={consBusy !== null}
+            className="h-10 inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red text-brand-red-foreground px-4 text-sm font-semibold shadow-[var(--shadow-sm)] hover:opacity-90 disabled:opacity-60 transition-opacity whitespace-nowrap"
+          >
+            {consBusy === "pdf" ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Generando...</>
+            ) : (
+              <><FileDown className="h-4 w-4" /> PDF</>
+            )}
+          </button>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+          <span className="text-[11px] text-muted-foreground">
+            Datos disponibles: {fmtDate(ds.dateRange.from)} — {fmtDate(ds.dateRange.to)}
+          </span>
+          <button
+            type="button"
+            onClick={() => { setConsFrom(""); setConsTo(""); }}
+            className="px-2 py-1 rounded-md border border-border bg-background hover:border-primary/40 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Limpiar fechas
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
