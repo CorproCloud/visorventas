@@ -50,6 +50,24 @@ export function DashboardPage() {
   const [generating, setGenerating] = useState(false);
   const [reportFrom, setReportFrom] = useState<string>("");
   const [reportTo, setReportTo] = useState<string>("");
+  const [consFrom, setConsFrom] = useState<string>("");
+  const [consTo, setConsTo] = useState<string>("");
+  const [consBusy, setConsBusy] = useState<"xlsx" | "pdf" | null>(null);
+
+  const handleConsumption = async (kind: "xlsx" | "pdf") => {
+    if (!ds) return;
+    const from = consFrom || ds.dateRange.from;
+    const to = consTo || ds.dateRange.to;
+    if (!from || !to) return;
+    setConsBusy(kind);
+    try {
+      const report = buildConsumptionReport(ds.invoices, from, to);
+      if (kind === "xlsx") exportConsumptionExcel(report);
+      else await exportConsumptionPDF(report);
+    } finally {
+      setConsBusy(null);
+    }
+  };
 
   const data = useMemo(() => {
     if (!ds) return null;
