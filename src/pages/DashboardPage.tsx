@@ -20,7 +20,7 @@ import {
 } from "@/lib/customerConsumptionReport";
 import { cn } from "@/lib/utils";
 import type { Invoice } from "@/lib/types";
-import { FileSpreadsheet, Users as UsersIcon } from "lucide-react";
+import { FileSpreadsheet } from "lucide-react";
 
 // Paleta amplia, sin repeticiones (15 tonos)
 const CATEGORY_PALETTE = [
