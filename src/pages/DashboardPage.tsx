@@ -534,7 +534,7 @@ export function DashboardPage() {
       <section className="mt-6 rounded-2xl bg-card border border-border p-6 sm:p-8 shadow-[var(--shadow-sm)]">
         <div className="flex items-start gap-3 mb-5">
           <div className="h-10 w-10 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
-            <UsersIcon className="h-5 w-5" />
+            <Users className="h-5 w-5" />
           </div>
           <div>
             <h3 className="text-base font-bold tracking-tight">Consumo por Cliente</h3>
