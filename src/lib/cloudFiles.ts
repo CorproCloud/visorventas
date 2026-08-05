@@ -90,6 +90,20 @@ export async function deleteCloudFile(file: CloudFile): Promise<void> {
   if (error) throw error;
 }
 
+export async function downloadCloudFile(file: CloudFile): Promise<void> {
+  const { data, error } = await supabase.storage.from(BUCKET).download(file.file_path);
+  if (error || !data) throw error ?? new Error("No se pudo descargar el archivo");
+
+  const url = URL.createObjectURL(data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = file.file_path.includes("-") ? file.file_path.split("-").slice(1).join("-") : file.file_path;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // In-memory cache of parsed invoices per file id
 const invoiceCache = new Map<string, Invoice[]>();
 
