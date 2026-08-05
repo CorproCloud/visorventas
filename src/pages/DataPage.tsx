@@ -113,6 +113,18 @@ export function DataPage() {
                     </label>
                     <button
                       onClick={() => {
+                        import("@/lib/cloudFiles").then((m) => m.downloadCloudFile(f)).catch((e) => {
+                          alert(e instanceof Error ? e.message : "Error al descargar");
+                        });
+                      }}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                      aria-label="Descargar"
+                      title="Descargar archivo original"
+                    >
+                      <Download className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => {
                         if (confirm(`¿Eliminar "${f.name}" de la nube? Esta acción no se puede deshacer.`)) {
                           removeFile(f.id);
                         }
