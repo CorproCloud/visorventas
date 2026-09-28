@@ -1,5 +1,4 @@
 import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas-pro";
 import { fmtMoney, fmtNumber, fmtPct, fmtMonth } from "@/lib/format";
 import logoUrl from "@/assets/logo-report.png";
 
@@ -189,23 +188,6 @@ function analyzeTopCustomers(p: ReportPayload): string {
     `Los 10 clientes principales suman ${top10Pct.toFixed(1)}% de la facturación del período. ${risk}`;
 }
 
-async function captureNode(id: string): Promise<string | null> {
-  const el = document.getElementById(id);
-  if (!el) return null;
-  try {
-    const canvas = await html2canvas(el, {
-      backgroundColor: "#ffffff",
-      scale: 2,
-      logging: false,
-      useCORS: true,
-    });
-    return canvas.toDataURL("image/png");
-  } catch (e) {
-    console.error("PDF capture failed for", id, e);
-    return null;
-  }
-}
-
 function ensureSpace(doc: jsPDF, y: number, needed: number, margin: number): number {
   const pageH = doc.internal.pageSize.getHeight();
   // Reservar 50pt para footer (línea + pie + crédito)
@@ -214,6 +196,71 @@ function ensureSpace(doc: jsPDF, y: number, needed: number, margin: number): num
     return margin;
   }
   return y;
+}
+
+function drawNativeBars(
+  doc: jsPDF,
+  items: { label: string; value: number }[],
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  horizontal = false,
+): void {
+  const safeItems = items.length ? items : [{ label: "Sin datos", value: 0 }];
+  const max = Math.max(...safeItems.map((item) => item.value), 1);
+  doc.setDrawColor(220, 224, 232);
+  doc.setLineWidth(0.5);
+  if (horizontal) {
+    const rowH = height / safeItems.length;
+    safeItems.forEach((item, index) => {
+      const cy = y + index * rowH;
+      const labelW = Math.min(150, width * 0.36);
+      doc.setTextColor(...GRAY);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      const label = item.label.length > 28 ? `${item.label.slice(0, 27)}...` : item.label;
+      doc.text(label, x, cy + rowH * 0.62);
+      const barX = x + labelW;
+      const barW = Math.max(1, ((width - labelW - 46) * item.value) / max);
+      doc.setFillColor(...NAVY);
+      doc.rect(barX, cy + rowH * 0.2, barW, rowH * 0.54, "F");
+      doc.setTextColor(45, 48, 58);
+      doc.text(fmtMoney(item.value, true), x + width, cy + rowH * 0.62, { align: "right" });
+    });
+    return;
+  }
+  const baseY = y + height - 24;
+  const slot = width / safeItems.length;
+  const barW = Math.max(3, Math.min(24, slot * 0.6));
+  doc.line(x, baseY, x + width, baseY);
+  safeItems.forEach((item, index) => {
+    const barH = Math.max(1, ((height - 42) * item.value) / max);
+    const barX = x + index * slot + (slot - barW) / 2;
+    doc.setFillColor(...NAVY);
+    doc.rect(barX, baseY - barH, barW, barH, "F");
+    if (safeItems.length <= 18 || index % Math.ceil(safeItems.length / 12) === 0) {
+      doc.setTextColor(...GRAY);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      doc.text(item.label, barX + barW / 2, baseY + 10, { align: "center", angle: 35 });
+    }
+  });
+  doc.setTextColor(...GRAY);
+  doc.setFontSize(7);
+  doc.text(fmtMoney(max, true), x, y + 8);
+}
+
+function drawAnalysisBox(doc: jsPDF, text: string, x: number, y: number, width: number): number {
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(9);
+  const lines = doc.splitTextToSize(text, width - 18);
+  const boxH = lines.length * 12 + 18;
+  doc.setFillColor(...LIGHT);
+  doc.roundedRect(x, y, width, boxH, 5, 5, "F");
+  doc.setTextColor(40, 40, 50);
+  doc.text(lines, x + 9, y + 13);
+  return y + boxH;
 }
 
 function drawParagraph(doc: jsPDF, text: string, x: number, y: number, width: number, margin: number): number {
@@ -328,47 +375,41 @@ export async function generateReportPDF(payload: ReportPayload): Promise<void> {
     y += 2;
   }
 
-  // ===== Capturar gráficas con análisis individual =====
-  const chartSections: { id: string; title: string; analysis: string }[] = [
-    { id: "pdf-chart-trend", title: "Tendencia mensual", analysis: analyzeTrend(payload) },
-    { id: "pdf-chart-categories", title: "Mix de categorías", analysis: analyzeCategories(payload) },
-    { id: "pdf-chart-top", title: "Top clientes", analysis: analyzeTopCustomers(payload) },
-  ];
+  // ===== Gráficas vectoriales: no dependen de capturas de la pantalla =====
+  doc.addPage();
+  y = 54;
+  doc.setTextColor(...NAVY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.text("Tendencia mensual", margin, y);
+  doc.setDrawColor(...RED);
+  doc.line(margin, y + 6, margin + 38, y + 6);
+  y += 22;
+  drawNativeBars(doc, payload.trend.map((item) => ({ label: item.period, value: item.ventas })), margin, y, pageW - marginLeft - marginRight, 210);
+  y = drawAnalysisBox(doc, analyzeTrend(payload), margin, y + 224, pageW - marginLeft - marginRight) + 24;
 
-  for (const { id, title, analysis: chartAnalysis } of chartSections) {
-    const dataUrl = await captureNode(id);
-    if (!dataUrl) continue;
-    const imgProps = doc.getImageProperties(dataUrl);
-    const w = pageW - margin * 2;
-    const h = (imgProps.height * w) / imgProps.width;
+  doc.setTextColor(...NAVY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.text("Categorias", margin, y);
+  doc.setDrawColor(...RED);
+  doc.line(margin, y + 6, margin + 38, y + 6);
+  y += 20;
+  const categoryItems = payload.categories.slice(0, 10).map((item) => ({ label: item.name, value: item.value }));
+  drawNativeBars(doc, categoryItems, margin, y, pageW - marginLeft - marginRight, 185, true);
+  drawAnalysisBox(doc, analyzeCategories(payload), margin, y + 195, pageW - marginLeft - marginRight);
 
-    y = ensureSpace(doc, y, h + 60, margin);
-
-    doc.setTextColor(...NAVY);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text(title, margin, y);
-    y += 4;
-    doc.setDrawColor(...RED);
-    doc.setLineWidth(1.5);
-    doc.line(margin, y, margin + 36, y);
-    y += 10;
-
-    doc.addImage(dataUrl, "PNG", margin, y, w, h);
-    y += h + 10;
-
-    // Párrafo explicativo dinámico bajo la gráfica
-    doc.setFillColor(248, 249, 252);
-    const linesAna = doc.splitTextToSize(chartAnalysis, pageW - margin * 2 - 16);
-    const boxH = linesAna.length * 12 + 16;
-    y = ensureSpace(doc, y, boxH + 12, margin);
-    doc.roundedRect(margin, y, pageW - margin * 2, boxH, 6, 6, "F");
-    doc.setTextColor(40, 40, 50);
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(9.5);
-    doc.text(linesAna, margin + 8, y + 12);
-    y += boxH + 16;
-  }
+  doc.addPage();
+  y = 54;
+  doc.setTextColor(...NAVY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.text("Top clientes", margin, y);
+  doc.setDrawColor(...RED);
+  doc.line(margin, y + 6, margin + 38, y + 6);
+  y += 22;
+  drawNativeBars(doc, payload.topCustomers.slice(0, 10).map((item) => ({ label: item.fullName, value: item.ventas })), margin, y, pageW - marginLeft - marginRight, 245, true);
+  y = drawAnalysisBox(doc, analyzeTopCustomers(payload), margin, y + 258, pageW - marginLeft - marginRight) + 26;
 
   // ===== Tabla Top clientes =====
   if (payload.topCustomers.length > 0) {
