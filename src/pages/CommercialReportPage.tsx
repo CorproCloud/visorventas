@@ -13,6 +13,7 @@ import { useDataStore } from "@/lib/store";
 import { analyzeCommercial, buildConclusions } from "@/lib/commercialAnalysis";
 import { fmtDate, fmtMoney, fmtNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import logoUrl from "@/assets/logo-report.png";
 
 const card = "rounded-2xl bg-card border border-border p-5 shadow-[var(--shadow-sm)]";
 
@@ -51,26 +52,66 @@ export function CommercialReportPage() {
     if (!ref.current) return;
     setBusy(true);
     try {
-      const canvas = await html2canvas(ref.current, { scale: 1.5, backgroundColor: "#ffffff" });
       const doc = new jsPDF({ unit: "pt", format: "a4" });
       const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
-      const margin = 28, footer = 26;
-      const imgW = pw - margin * 2;
-      const pxPerPt = canvas.width / imgW;
-      const sliceH = (ph - margin - footer) * pxPerPt;
-      let y = 0, page = 1;
-      while (y < canvas.height) {
-        const h = Math.min(sliceH, canvas.height - y);
-        const c = document.createElement("canvas");
-        c.width = canvas.width; c.height = h;
-        c.getContext("2d")!.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
-        if (page > 1) doc.addPage();
-        doc.setFillColor(220, 38, 38); doc.rect(0, 0, 10, ph, "F");
-        doc.addImage(c.toDataURL("image/jpeg", 0.9), "JPEG", margin, margin, imgW, h / pxPerPt);
-        doc.setFontSize(8); doc.setTextColor(100, 110, 130);
-        doc.text("Desarrollado por Miguel M. Navarro.", margin, ph - 12);
-        doc.text(`Página ${page}`, pw - margin, ph - 12, { align: "right" });
-        y += h; page++;
+      const mx = 36, top = 92, bottom = 40;
+      const maxW = pw - mx * 2, maxH = ph - top - bottom;
+      let logo: string | null = null;
+      try {
+        const blob = await (await fetch(logoUrl)).blob();
+        logo = await new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.readAsDataURL(blob); });
+      } catch { /* sin logo */ }
+      let page = 0;
+      const newPage = () => {
+        if (page > 0) doc.addPage();
+        page++;
+        doc.setFillColor(220, 38, 38); doc.rect(0, 0, 12, ph, "F");
+        if (logo) doc.addImage(logo, "PNG", mx, 24, 42, 42);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.setTextColor(20, 20, 30);
+        doc.text("Reporte Área Comercial General", mx + 54, 44);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(100, 110, 130);
+        doc.text(`Período: ${fmtDate(f)} — ${fmtDate(t)}`, mx + 54, 60);
+        doc.text(`Generado: ${new Date().toLocaleDateString("es-MX")}`, pw - mx, 44, { align: "right" });
+        doc.setDrawColor(230, 232, 238); doc.line(mx, 76, pw - mx, 76);
+        doc.setFontSize(8);
+        doc.text("Desarrollado por Miguel M. Navarro.", mx, ph - 18);
+        doc.text(`Página ${page}`, pw - mx, ph - 18, { align: "right" });
+        return top;
+      };
+      let y = newPage();
+      const blocks = Array.from(ref.current.querySelectorAll<HTMLElement>("[data-pdf-block]"));
+      // Quitar límites de scroll para capturar tablas completas
+      const scrollers = Array.from(ref.current.querySelectorAll<HTMLElement>(".overflow-y-auto"));
+      scrollers.forEach((el) => { el.style.maxHeight = "none"; el.style.overflow = "visible"; });
+      const extras = Array.from(ref.current.querySelectorAll<HTMLElement>("[data-pdf-extra]"));
+      extras.forEach((el) => { el.style.display = "none"; });
+      try {
+        for (const el of blocks) {
+          const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff", windowWidth: 1200, width: el.scrollWidth });
+          let w = maxW, h = (canvas.height / canvas.width) * w;
+          if (h > maxH) {
+            // Bloque muy alto: partir en rebanadas de página completa
+            const pxPerPt = canvas.width / w;
+            let sy = 0;
+            if (y > top) y = newPage();
+            while (sy < canvas.height) {
+              const sh = Math.min(maxH * pxPerPt, canvas.height - sy);
+              const c = document.createElement("canvas");
+              c.width = canvas.width; c.height = sh;
+              c.getContext("2d")!.drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh);
+              doc.addImage(c.toDataURL("image/jpeg", 0.92), "JPEG", mx, y, w, sh / pxPerPt);
+              sy += sh;
+              if (sy < canvas.height) y = newPage(); else y += sh / pxPerPt + 12;
+            }
+            continue;
+          }
+          if (y + h > ph - bottom) y = newPage();
+          doc.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", mx, y, w, h);
+          y += h + 12;
+        }
+      } finally {
+        scrollers.forEach((el) => { el.style.maxHeight = ""; el.style.overflow = ""; });
+        extras.forEach((el) => { el.style.display = ""; });
       }
       doc.save(`reporte-area-comercial-${f}_${t}.pdf`);
     } finally {
@@ -100,7 +141,7 @@ export function CommercialReportPage() {
         <p className="text-sm text-muted-foreground">Período: {fmtDate(f)} — {fmtDate(t)} · Excluye "Administración y control"</p>
 
         {/* 1. KPIs */}
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <div data-pdf-block className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi icon={DollarSign} label="Ventas Totales" value={fmtMoney(a.totalSales, true)} sub={isFinite(a.prevDelta) ? `${a.prevDelta >= 0 ? "+" : ""}${a.prevDelta.toFixed(1)}% vs período anterior` : `${fmtNumber(a.invoiceCount)} facturas`} />
           <Kpi icon={Boxes} label="Unidades Vendidas" value={fmtNumber(a.totalUnits)} sub={`${fmtNumber(a.products.filter((p) => p.units > 0).length)} productos con venta`} />
           <Kpi icon={Crown} label="Cliente Top" value={a.topCustomer?.name ?? "—"} sub={a.topCustomer ? fmtMoney(a.topCustomer.value, true) : ""} small />
@@ -108,7 +149,7 @@ export function CommercialReportPage() {
         </div>
 
         {/* 2. Ventas general */}
-        <section className={card}>
+        <section data-pdf-block className={card}>
           <Header icon={TrendingUp} title="Introducción de Ventas General">
             <Tabs value={grain} onChange={setGrain} options={[["mes", "Mensual"], ["semana", "Semanal"]]} />
           </Header>
@@ -137,7 +178,7 @@ export function CommercialReportPage() {
         </section>
 
         {/* 3. Rotación */}
-        <section className={card}>
+        <section data-pdf-block className={card}>
           <Header icon={RefreshCcw} title="Rotación de Producto" />
           <div className="grid sm:grid-cols-3 gap-3 mb-4">
             {(["Alta", "Media", "Baja"] as const).map((r) => (
@@ -171,7 +212,7 @@ export function CommercialReportPage() {
         </section>
 
         {/* 4. Pareto */}
-        <section className={card}>
+        <section data-pdf-block className={card}>
           <Header icon={PieIcon} title="Análisis 80/20 (Pareto)">
             <Tabs value={paretoTab} onChange={setParetoTab} options={[["productos", "Productos"], ["clientes", "Clientes"]]} />
           </Header>
@@ -198,7 +239,7 @@ export function CommercialReportPage() {
               </thead>
               <tbody>
                 {pareto.items.filter((i) => i.inTop).map((i, idx) => (
-                  <tr key={i.name} className="border-b border-border/60">
+                  <tr key={i.name} data-pdf-extra={idx >= 25 ? "" : undefined} className="border-b border-border/60">
                     <td className="py-1.5">{idx + 1}</td><td>{i.name}</td><td className="text-right">{fmtMoney(i.value)}</td><td className="text-right">{i.cumPct.toFixed(1)}%</td>
                   </tr>
                 ))}
@@ -208,7 +249,7 @@ export function CommercialReportPage() {
         </section>
 
         {/* 5. Stock muerto */}
-        <section className={card}>
+        <section data-pdf-block className={card}>
           <Header icon={PackageX} title="Productos con Nula Rotación (Stock Muerto)">
             <Tabs value={String(deadDays)} onChange={(v) => setDeadDays(Number(v) as 30 | 60 | 90)} options={[["30", "30 días"], ["60", "60 días"], ["90", "90 días"]]} />
           </Header>
@@ -220,8 +261,8 @@ export function CommercialReportPage() {
               </thead>
               <tbody>
                 {dead.length === 0 && <tr><td colSpan={4} className="py-4 text-center text-muted-foreground">Sin productos en este rango.</td></tr>}
-                {dead.map((p) => (
-                  <tr key={p.key} className="border-b border-border/60">
+                {dead.map((p, idx) => (
+                  <tr key={p.key} data-pdf-extra={idx >= 25 ? "" : undefined} className="border-b border-border/60">
                     <td className="py-1.5">{p.name}</td>
                     <td className="text-right">{fmtNumber(p.stock)}</td>
                     <td className="text-right">{fmtMoney(p.stock * p.avgPrice)}</td>
@@ -234,7 +275,7 @@ export function CommercialReportPage() {
         </section>
 
         {/* 6. Resumen ejecutivo */}
-        <section className={card}>
+        <section data-pdf-block className={card}>
           <Header icon={ClipboardList} title="Resumen Ejecutivo de Análisis Comercial" />
           <ul className="space-y-2">
             {conclusions.map((c, i) => {
