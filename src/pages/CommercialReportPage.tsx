@@ -83,6 +83,8 @@ export function CommercialReportPage() {
       // Quitar límites de scroll para capturar tablas completas
       const scrollers = Array.from(ref.current.querySelectorAll<HTMLElement>(".overflow-y-auto"));
       scrollers.forEach((el) => { el.style.maxHeight = "none"; el.style.overflow = "visible"; });
+      const extras = Array.from(ref.current.querySelectorAll<HTMLElement>("[data-pdf-extra]"));
+      extras.forEach((el) => { el.style.display = "none"; });
       try {
         for (const el of blocks) {
           const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff", windowWidth: 1200, width: el.scrollWidth });
@@ -109,6 +111,7 @@ export function CommercialReportPage() {
         }
       } finally {
         scrollers.forEach((el) => { el.style.maxHeight = ""; el.style.overflow = ""; });
+        extras.forEach((el) => { el.style.display = ""; });
       }
       doc.save(`reporte-area-comercial-${f}_${t}.pdf`);
     } finally {
@@ -236,7 +239,7 @@ export function CommercialReportPage() {
               </thead>
               <tbody>
                 {pareto.items.filter((i) => i.inTop).map((i, idx) => (
-                  <tr key={i.name} className="border-b border-border/60">
+                  <tr key={i.name} data-pdf-extra={idx >= 25 ? "" : undefined} className="border-b border-border/60">
                     <td className="py-1.5">{idx + 1}</td><td>{i.name}</td><td className="text-right">{fmtMoney(i.value)}</td><td className="text-right">{i.cumPct.toFixed(1)}%</td>
                   </tr>
                 ))}
@@ -258,8 +261,8 @@ export function CommercialReportPage() {
               </thead>
               <tbody>
                 {dead.length === 0 && <tr><td colSpan={4} className="py-4 text-center text-muted-foreground">Sin productos en este rango.</td></tr>}
-                {dead.map((p) => (
-                  <tr key={p.key} className="border-b border-border/60">
+                {dead.map((p, idx) => (
+                  <tr key={p.key} data-pdf-extra={idx >= 25 ? "" : undefined} className="border-b border-border/60">
                     <td className="py-1.5">{p.name}</td>
                     <td className="text-right">{fmtNumber(p.stock)}</td>
                     <td className="text-right">{fmtMoney(p.stock * p.avgPrice)}</td>
