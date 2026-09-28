@@ -135,7 +135,7 @@ export function CommercialReportPage() {
       </div>
 
       <div ref={ref} className="space-y-5 bg-background">
-        <p data-pdf-block className="text-sm text-muted-foreground">Período: {fmtDate(f)} — {fmtDate(t)} · Excluye "Administración y control"</p>
+        <p className="text-sm text-muted-foreground">Período: {fmtDate(f)} — {fmtDate(t)} · Excluye "Administración y control"</p>
 
         {/* 1. KPIs */}
         <div data-pdf-block className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
