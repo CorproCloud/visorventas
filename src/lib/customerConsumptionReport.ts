@@ -133,43 +133,35 @@ async function loadLogo(): Promise<string | null> {
 }
 
 export async function exportConsumptionPDF(report: ConsumptionReport): Promise<void> {
-  const doc = new jsPDF({ orientation: "l", unit: "pt", format: "a4" });
+  const doc = new jsPDF({ orientation: "l", unit: "pt", format: "a4", compress: true });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
 
-  // Membrete rojo lateral
-  doc.setFillColor(220, 38, 38);
-  doc.rect(0, 0, 18, pageH, "F");
-
-  // Header
   const logo = await loadLogo();
-  let textX = 40;
-  if (logo) {
-    try {
-      doc.addImage(logo, "PNG", 40, 24, 44, 44);
-      textX = 96;
-    } catch { /* noop */ }
-  }
-  doc.setTextColor(20, 20, 30);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.text("Consumo por Cliente", textX, 46);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(100, 110, 130);
-  doc.text(`Período: ${report.periodLabel}`, textX, 62);
-  doc.text(
-    `Clientes: ${report.rows.length}  ·  Total: ${fmtMoney(report.grandTotal, true)}`,
-    pageW - 40,
-    46,
-    { align: "right" },
-  );
-  doc.text(
-    `Generado: ${new Date().toLocaleDateString("es-MX")}`,
-    pageW - 40,
-    62,
-    { align: "right" },
-  );
+  const drawHeader = () => {
+    doc.setFillColor(220, 38, 38);
+    doc.rect(0, 0, 18, pageH, "F");
+    let textX = 40;
+    if (logo) {
+      try {
+        doc.addImage(logo, "PNG", 40, 24, 44, 44);
+        textX = 96;
+      } catch { textX = 40; }
+    }
+    doc.setTextColor(20, 20, 30);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("Consumo por Cliente", textX, 46);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 110, 130);
+    doc.text(`Período: ${report.periodLabel}`, textX, 62);
+    doc.text(`Clientes: ${report.rows.length}  -  Total: ${fmtMoney(report.grandTotal, true)}`, pageW - 40, 46, { align: "right" });
+    doc.text(`Generado: ${new Date().toLocaleDateString("es-MX")}`, pageW - 40, 62, { align: "right" });
+    doc.setDrawColor(225, 228, 235);
+    doc.line(40, 76, pageW - 40, 76);
+  };
+  drawHeader();
 
   // Table
   const head = [[
@@ -196,8 +188,8 @@ export async function exportConsumptionPDF(report: ConsumptionReport): Promise<v
     body,
     foot,
     startY: 88,
-    margin: { left: 30, right: 30, bottom: 40 },
-    styles: { fontSize: 7.5, cellPadding: 3, overflow: "linebreak" },
+    margin: { left: 30, right: 30, top: 88, bottom: 40 },
+    styles: { fontSize: report.months.length > 18 ? 5.5 : report.months.length > 12 ? 6.5 : 7.5, cellPadding: report.months.length > 12 ? 2 : 3, overflow: "linebreak" },
     headStyles: { fillColor: [30, 41, 99], textColor: 255, fontStyle: "bold", fontSize: 7.5 },
     footStyles: { fillColor: [240, 242, 247], textColor: [20, 20, 30], fontStyle: "bold" },
     alternateRowStyles: { fillColor: [248, 249, 252] },
@@ -206,9 +198,7 @@ export async function exportConsumptionPDF(report: ConsumptionReport): Promise<v
       1: { cellWidth: 160 },
     },
     didDrawPage: () => {
-      // Membrete lateral y pie en todas las páginas
-      doc.setFillColor(220, 38, 38);
-      doc.rect(0, 0, 18, pageH, "F");
+      drawHeader();
       doc.setTextColor(100, 110, 130);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);

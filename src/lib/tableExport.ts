@@ -97,42 +97,50 @@ async function loadLogo(): Promise<string | null> {
 }
 
 export async function exportTablePDF(report: TableReport): Promise<void> {
-  const doc = new jsPDF({ orientation: report.orientation ?? "l", unit: "pt", format: "a4" });
+  const doc = new jsPDF({ orientation: report.orientation ?? "l", unit: "pt", format: "a4", compress: true });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
 
-  doc.setFillColor(220, 38, 38);
-  doc.rect(0, 0, 18, pageH, "F");
-
   const logo = await loadLogo();
-  let textX = 40;
-  if (logo) {
-    try {
-      doc.addImage(logo, "PNG", 40, 24, 44, 44);
-      textX = 96;
-    } catch { /* noop */ }
-  }
-  doc.setTextColor(20, 20, 30);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.text(report.title, textX, 46);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(100, 110, 130);
-  doc.text(`Período: ${report.periodLabel}`, textX, 62);
-
   const summaryLine = (report.summary ?? [])
     .slice(0, 3)
     .map((s) => `${s.label}: ${s.value}`)
     .join("  ·  ");
-  if (summaryLine) doc.text(summaryLine, pageW - 40, 46, { align: "right" });
-  doc.text(`Generado: ${new Date().toLocaleDateString("es-MX")}`, pageW - 40, 62, { align: "right" });
+  const drawHeader = () => {
+    doc.setFillColor(220, 38, 38);
+    doc.rect(0, 0, 18, pageH, "F");
+    let textX = 40;
+    if (logo) {
+      try {
+        doc.addImage(logo, "PNG", 40, 24, 44, 44);
+        textX = 96;
+      } catch { textX = 40; }
+    }
+    doc.setTextColor(20, 20, 30);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text(report.title, textX, 46);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 110, 130);
+    doc.text(`Período: ${report.periodLabel}`, textX, 62);
+    if (summaryLine) doc.text(summaryLine, pageW - 40, 46, { align: "right", maxWidth: pageW * 0.38 });
+    doc.text(`Generado: ${new Date().toLocaleDateString("es-MX")}`, pageW - 40, 62, { align: "right" });
+    doc.setDrawColor(225, 228, 235);
+    doc.line(40, 76, pageW - 40, 76);
+  };
+  drawHeader();
 
   let startY = 88;
   if (report.notes?.length) {
     doc.setTextColor(60, 65, 80);
     doc.setFontSize(8.5);
-    const wrapped = doc.splitTextToSize(report.notes.join(" "), pageW - 80);
+    const wrapped = doc.splitTextToSize(report.notes.join(" "), pageW - 100);
+    if (startY + wrapped.length * 11 > pageH - 70) {
+      doc.addPage();
+      drawHeader();
+      startY = 88;
+    }
     doc.text(wrapped, 40, startY);
     startY += wrapped.length * 11 + 8;
   }
@@ -156,15 +164,14 @@ export async function exportTablePDF(report: TableReport): Promise<void> {
     body,
     foot,
     startY,
-    margin: { left: 30, right: 30, bottom: 40 },
+    margin: { left: 30, right: 30, top: 88, bottom: 40 },
     styles: { fontSize: 7.5, cellPadding: 3, overflow: "linebreak" },
     headStyles: { fillColor: [30, 41, 99], textColor: 255, fontStyle: "bold", fontSize: 7.5 },
     footStyles: { fillColor: [240, 242, 247], textColor: [20, 20, 30], fontStyle: "bold" },
     alternateRowStyles: { fillColor: [248, 249, 252] },
     columnStyles,
     didDrawPage: () => {
-      doc.setFillColor(220, 38, 38);
-      doc.rect(0, 0, 18, pageH, "F");
+      drawHeader();
       doc.setTextColor(100, 110, 130);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);

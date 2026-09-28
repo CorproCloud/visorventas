@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ResponsiveContainer, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -7,13 +7,12 @@ import {
   DollarSign, Boxes, Crown, Star, ArrowLeft, FileDown, Loader2, AlertTriangle, CheckCircle2, AlertCircle,
   RefreshCcw, PieChart as PieIcon, PackageX, ClipboardList, TrendingUp,
 } from "lucide-react";
-import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas-pro";
 import { useDataStore } from "@/lib/store";
 import { analyzeCommercial, buildConclusions } from "@/lib/commercialAnalysis";
+import { exportCommercialReportPDF } from "@/lib/commercialReportPDF";
 import { fmtDate, fmtMoney, fmtNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import logoUrl from "@/assets/logo-report.png";
+import { Button } from "@/components/ui/button";
 
 const card = "rounded-2xl bg-card border border-border p-5 shadow-[var(--shadow-sm)]";
 
@@ -25,7 +24,7 @@ export function CommercialReportPage() {
   const [paretoTab, setParetoTab] = useState<"productos" | "clientes">("productos");
   const [deadDays, setDeadDays] = useState<30 | 60 | 90>(30);
   const [busy, setBusy] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [exportError, setExportError] = useState("");
 
   const f = from || ds?.dateRange.from || "";
   const t = to || ds?.dateRange.to || "";
@@ -49,71 +48,13 @@ export function CommercialReportPage() {
   const avgDaysInv = a.products.length ? Math.round(a.products.reduce((s, p) => s + Math.min(p.daysInventory, 365), 0) / a.products.length) : 0;
 
   const exportPDF = async () => {
-    if (!ref.current) return;
     setBusy(true);
+    setExportError("");
     try {
-      const doc = new jsPDF({ unit: "pt", format: "a4" });
-      const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
-      const mx = 36, top = 92, bottom = 40;
-      const maxW = pw - mx * 2, maxH = ph - top - bottom;
-      let logo: string | null = null;
-      try {
-        const blob = await (await fetch(logoUrl)).blob();
-        logo = await new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.readAsDataURL(blob); });
-      } catch { /* sin logo */ }
-      let page = 0;
-      const newPage = () => {
-        if (page > 0) doc.addPage();
-        page++;
-        doc.setFillColor(220, 38, 38); doc.rect(0, 0, 12, ph, "F");
-        if (logo) doc.addImage(logo, "PNG", mx, 24, 42, 42);
-        doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.setTextColor(20, 20, 30);
-        doc.text("Reporte Área Comercial General", mx + 54, 44);
-        doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(100, 110, 130);
-        doc.text(`Período: ${fmtDate(f)} — ${fmtDate(t)}`, mx + 54, 60);
-        doc.text(`Generado: ${new Date().toLocaleDateString("es-MX")}`, pw - mx, 44, { align: "right" });
-        doc.setDrawColor(230, 232, 238); doc.line(mx, 76, pw - mx, 76);
-        doc.setFontSize(8);
-        doc.text("Desarrollado por Miguel M. Navarro.", mx, ph - 18);
-        doc.text(`Página ${page}`, pw - mx, ph - 18, { align: "right" });
-        return top;
-      };
-      let y = newPage();
-      const blocks = Array.from(ref.current.querySelectorAll<HTMLElement>("[data-pdf-block]"));
-      // Quitar límites de scroll para capturar tablas completas
-      const scrollers = Array.from(ref.current.querySelectorAll<HTMLElement>(".overflow-y-auto"));
-      scrollers.forEach((el) => { el.style.maxHeight = "none"; el.style.overflow = "visible"; });
-      const extras = Array.from(ref.current.querySelectorAll<HTMLElement>("[data-pdf-extra]"));
-      extras.forEach((el) => { el.style.display = "none"; });
-      try {
-        for (const el of blocks) {
-          const canvas = await html2canvas(el, { scale: 2, backgroundColor: "#ffffff", windowWidth: 1200, width: el.scrollWidth });
-          let w = maxW, h = (canvas.height / canvas.width) * w;
-          if (h > maxH) {
-            // Bloque muy alto: partir en rebanadas de página completa
-            const pxPerPt = canvas.width / w;
-            let sy = 0;
-            if (y > top) y = newPage();
-            while (sy < canvas.height) {
-              const sh = Math.min(maxH * pxPerPt, canvas.height - sy);
-              const c = document.createElement("canvas");
-              c.width = canvas.width; c.height = sh;
-              c.getContext("2d")!.drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh);
-              doc.addImage(c.toDataURL("image/jpeg", 0.92), "JPEG", mx, y, w, sh / pxPerPt);
-              sy += sh;
-              if (sy < canvas.height) y = newPage(); else y += sh / pxPerPt + 12;
-            }
-            continue;
-          }
-          if (y + h > ph - bottom) y = newPage();
-          doc.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", mx, y, w, h);
-          y += h + 12;
-        }
-      } finally {
-        scrollers.forEach((el) => { el.style.maxHeight = ""; el.style.overflow = ""; });
-        extras.forEach((el) => { el.style.display = ""; });
-      }
-      doc.save(`reporte-area-comercial-${f}_${t}.pdf`);
+      await exportCommercialReportPDF({ analysis: a, conclusions, from: f, to: t, deadDays });
+    } catch (error) {
+      console.error("No se pudo generar el reporte comercial", error);
+      setExportError("No se pudo generar el PDF. Intenta nuevamente.");
     } finally {
       setBusy(false);
     }
@@ -131,13 +72,14 @@ export function CommercialReportPage() {
         <div className="flex flex-wrap items-end gap-2">
           <input type="date" value={from} min={ds.dateRange.from} max={ds.dateRange.to} onChange={(e) => setFrom(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm" />
           <input type="date" value={to} min={from || ds.dateRange.from} max={ds.dateRange.to} onChange={(e) => setTo(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm" />
-          <button onClick={exportPDF} disabled={busy} className="h-10 inline-flex items-center gap-2 rounded-lg bg-brand-red text-brand-red-foreground px-4 text-sm font-semibold disabled:opacity-60">
+          <Button onClick={exportPDF} disabled={busy} variant="destructive" className="h-10">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />} PDF
-          </button>
+          </Button>
         </div>
       </div>
+      {exportError && <p role="alert" className="mb-4 text-sm font-medium text-destructive">{exportError}</p>}
 
-      <div ref={ref} className="space-y-5 bg-background">
+      <div className="space-y-5 bg-background">
         <p className="text-sm text-muted-foreground">Período: {fmtDate(f)} — {fmtDate(t)} · Excluye "Administración y control"</p>
 
         {/* 1. KPIs */}

@@ -16,6 +16,7 @@ import {
   buildConsumptionReport, exportConsumptionExcel, exportConsumptionPDF,
 } from "@/lib/customerConsumptionReport";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 type Fmt = "pdf" | "xlsx";
 
@@ -53,6 +54,7 @@ export function ReportCenter({ invoices, dateRange, periodLabel, onExecutivePDF 
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
   const [busy, setBusy] = useState<Fmt | null>(null);
+  const [exportError, setExportError] = useState("");
 
   const def = REPORTS.find((r) => r.key === type)!;
 
@@ -61,6 +63,7 @@ export function ReportCenter({ invoices, dateRange, periodLabel, onExecutivePDF 
     const t = to || dateRange.to;
     if (!f || !t) return;
     setBusy(fmt);
+    setExportError("");
     try {
       if (type === "comercial") {
         window.location.href = "/reporte-comercial";
@@ -89,6 +92,9 @@ export function ReportCenter({ invoices, dateRange, periodLabel, onExecutivePDF 
       const report = builders[type](invoices, f, t);
       if (fmt === "xlsx") exportTableExcel(report);
       else await exportTablePDF(report);
+    } catch (error) {
+      console.error("No se pudo generar el reporte", error);
+      setExportError("No se pudo generar el archivo. Intenta nuevamente.");
     } finally {
       setBusy(null);
     }
@@ -171,21 +177,24 @@ export function ReportCenter({ invoices, dateRange, periodLabel, onExecutivePDF 
             className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
-        <button
+        <Button
           onClick={() => run("pdf")}
           disabled={busy !== null || !def.formats.includes("pdf")}
-          className="h-10 inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red text-brand-red-foreground px-5 text-sm font-semibold shadow-[var(--shadow-sm)] hover:opacity-90 disabled:opacity-50 transition-opacity whitespace-nowrap"
+          variant="destructive"
+          className="h-10 px-5"
         >
           {busy === "pdf" ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando...</> : <><FileDown className="h-4 w-4" /> PDF</>}
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => run("xlsx")}
           disabled={busy !== null || !def.formats.includes("xlsx")}
-          className="h-10 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 text-white px-5 text-sm font-semibold shadow-[var(--shadow-sm)] hover:opacity-90 disabled:opacity-50 transition-opacity whitespace-nowrap"
+          className="h-10 px-5 bg-emerald text-emerald-foreground hover:bg-emerald/90"
         >
           {busy === "xlsx" ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando...</> : <><FileSpreadsheet className="h-4 w-4" /> Excel</>}
-        </button>
+        </Button>
       </div>
+
+      {exportError && <p role="alert" className="mt-3 text-sm font-medium text-destructive">{exportError}</p>}
 
       {type === "comercial" && (
         <Link to="/reporte-comercial" className="mt-3 inline-flex items-center gap-2 rounded-lg border border-brand-red text-brand-red px-4 py-2 text-sm font-semibold hover:bg-brand-red/5">
