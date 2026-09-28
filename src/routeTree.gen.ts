@@ -14,6 +14,7 @@ import { Route as CatalogRouteImport } from './routes/catalog'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DataRouteImport } from './routes/data'
 import { Route as ExplorerRouteImport } from './routes/explorer'
+import { Route as ReporteComercialRouteImport } from './routes/reporte-comercial'
 import { Route as CustomersCustomerIdRouteImport } from './routes/customers.$customerId'
 import { Route as ProductsProductCodeRouteImport } from './routes/products.$productCode'
 
@@ -42,6 +43,11 @@ const ExplorerRoute = ExplorerRouteImport.update({
   path: '/explorer',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReporteComercialRoute = ReporteComercialRouteImport.update({
+  id: '/reporte-comercial',
+  path: '/reporte-comercial',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CustomersCustomerIdRoute = CustomersCustomerIdRouteImport.update({
   id: '/customers/$customerId',
   path: '/customers/$customerId',
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/data': typeof DataRoute
   '/explorer': typeof ExplorerRoute
+  '/reporte-comercial': typeof ReporteComercialRoute
   '/customers/$customerId': typeof CustomersCustomerIdRoute
   '/products/$productCode': typeof ProductsProductCodeRoute
 }
@@ -68,6 +75,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/data': typeof DataRoute
   '/explorer': typeof ExplorerRoute
+  '/reporte-comercial': typeof ReporteComercialRoute
   '/customers/$customerId': typeof CustomersCustomerIdRoute
   '/products/$productCode': typeof ProductsProductCodeRoute
 }
@@ -78,6 +86,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/data': typeof DataRoute
   '/explorer': typeof ExplorerRoute
+  '/reporte-comercial': typeof ReporteComercialRoute
   '/customers/$customerId': typeof CustomersCustomerIdRoute
   '/products/$productCode': typeof ProductsProductCodeRoute
 }
@@ -89,6 +98,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/data'
     | '/explorer'
+    | '/reporte-comercial'
     | '/customers/$customerId'
     | '/products/$productCode'
   fileRoutesByTo: FileRoutesByTo
@@ -98,6 +108,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/data'
     | '/explorer'
+    | '/reporte-comercial'
     | '/customers/$customerId'
     | '/products/$productCode'
   id:
@@ -107,6 +118,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/data'
     | '/explorer'
+    | '/reporte-comercial'
     | '/customers/$customerId'
     | '/products/$productCode'
   fileRoutesById: FileRoutesById
@@ -117,6 +129,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   DataRoute: typeof DataRoute
   ExplorerRoute: typeof ExplorerRoute
+  ReporteComercialRoute: typeof ReporteComercialRoute
   CustomersCustomerIdRoute: typeof CustomersCustomerIdRoute
   ProductsProductCodeRoute: typeof ProductsProductCodeRoute
 }
@@ -158,6 +171,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExplorerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reporte-comercial': {
+      id: '/reporte-comercial'
+      path: '/reporte-comercial'
+      fullPath: '/reporte-comercial'
+      preLoaderRoute: typeof ReporteComercialRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/customers/$customerId': {
       id: '/customers/$customerId'
       path: '/customers/$customerId'
@@ -181,6 +201,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   DataRoute: DataRoute,
   ExplorerRoute: ExplorerRoute,
+  ReporteComercialRoute: ReporteComercialRoute,
   CustomersCustomerIdRoute: CustomersCustomerIdRoute,
   ProductsProductCodeRoute: ProductsProductCodeRoute,
 }

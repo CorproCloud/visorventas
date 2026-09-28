@@ -13,11 +13,7 @@ import { PeriodSelector } from "@/components/layout/PeriodSelector";
 import { useDataStore, filterInvoices } from "@/lib/store";
 import { fmtMoney, fmtNumber, fmtPct, fmtMonth, fmtDate, safeId } from "@/lib/format";
 import { generateReportPDF } from "@/lib/pdfReport";
-import {
-  buildConsumptionReport,
-  exportConsumptionExcel,
-  exportConsumptionPDF,
-} from "@/lib/customerConsumptionReport";
+import { ReportCenter } from "@/components/dashboard/ReportCenter";
 import { cn } from "@/lib/utils";
 import type { Invoice } from "@/lib/types";
 import { FileSpreadsheet } from "lucide-react";
@@ -48,26 +44,6 @@ export function DashboardPage() {
   const [trendMetric, setTrendMetric] = useState<TrendMetric>("ventas");
   const [trendChart, setTrendChart] = useState<TrendChartType>("area");
   const [generating, setGenerating] = useState(false);
-  const [reportFrom, setReportFrom] = useState<string>("");
-  const [reportTo, setReportTo] = useState<string>("");
-  const [consFrom, setConsFrom] = useState<string>("");
-  const [consTo, setConsTo] = useState<string>("");
-  const [consBusy, setConsBusy] = useState<"xlsx" | "pdf" | null>(null);
-
-  const handleConsumption = async (kind: "xlsx" | "pdf") => {
-    if (!ds) return;
-    const from = consFrom || ds.dateRange.from;
-    const to = consTo || ds.dateRange.to;
-    if (!from || !to) return;
-    setConsBusy(kind);
-    try {
-      const report = buildConsumptionReport(ds.invoices, from, to);
-      if (kind === "xlsx") exportConsumptionExcel(report);
-      else await exportConsumptionPDF(report);
-    } finally {
-      setConsBusy(null);
-    }
-  };
 
   const data = useMemo(() => {
     if (!ds) return null;
@@ -162,7 +138,7 @@ export function DashboardPage() {
   // Ancho dinámico para scroll horizontal: 60px por mes mín 100% del contenedor
   const trendMinWidth = Math.max(data!.trend.length * 60, 600);
 
-  const handleGeneratePDF = async () => {
+  const handleGeneratePDF = async (reportFrom: string, reportTo: string) => {
     if (!ds) return;
     setGenerating(true);
     try {
@@ -433,183 +409,12 @@ export function DashboardPage() {
         </Link>
       </div>
 
-      {/* ===== Sección de Reporte PDF (pie de página) ===== */}
-      <section className="mt-10 rounded-2xl bg-gradient-to-br from-card to-muted/40 border border-border p-6 sm:p-8 shadow-[var(--shadow-sm)]">
-        <div className="flex items-start gap-3 mb-5">
-          <div className="h-10 w-10 rounded-lg bg-brand-red/10 text-brand-red flex items-center justify-center shrink-0">
-            <FileDown className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="text-base font-bold tracking-tight">Generar Reporte</h3>
-            <p className="text-sm text-muted-foreground mt-0.5 max-w-2xl">
-              Selecciona un rango de fechas para acotar el análisis. El reporte incluirá KPIs, gráficas
-              y párrafos explicativos automáticos para cada visualización. Si dejas las fechas en blanco,
-              se utilizará el período activo ({periodLabel}).
-            </p>
-          </div>
-        </div>
-
-        <div className="grid sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
-          <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 flex items-center gap-1.5">
-              <CalendarRange className="h-3.5 w-3.5" /> Fecha inicio
-            </label>
-            <input
-              type="date"
-              value={reportFrom}
-              min={ds.dateRange.from}
-              max={ds.dateRange.to}
-              onChange={(e) => setReportFrom(e.target.value)}
-              className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-          <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 flex items-center gap-1.5">
-              <CalendarRange className="h-3.5 w-3.5" /> Fecha fin
-            </label>
-            <input
-              type="date"
-              value={reportTo}
-              min={reportFrom || ds.dateRange.from}
-              max={ds.dateRange.to}
-              onChange={(e) => setReportTo(e.target.value)}
-              className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-          <button
-            onClick={handleGeneratePDF}
-            disabled={generating || (Boolean(reportFrom) !== Boolean(reportTo))}
-            className="h-10 inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red text-brand-red-foreground px-5 text-sm font-semibold shadow-[var(--shadow-sm)] hover:opacity-90 disabled:opacity-60 transition-opacity whitespace-nowrap"
-          >
-            {generating ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Generando...</>
-            ) : (
-              <><FileDown className="h-4 w-4" /> Generar Reporte PDF</>
-            )}
-          </button>
-        </div>
-
-        <div className="mt-5 pt-4 border-t border-border">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Atajos de Reporte PDF por Año
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {[2026, 2025, 2024, 2023, 2022].map((y) => {
-              const yStr = String(y);
-              return (
-                <button
-                  key={y}
-                  type="button"
-                  disabled={generating}
-                  onClick={async () => {
-                    setReportFrom(`${yStr}-01-01`);
-                    setReportTo(`${yStr}-12-31`);
-                    await new Promise((r) => setTimeout(r, 50));
-                    handleGeneratePDF();
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background hover:border-brand-red/60 hover:bg-brand-red/5 hover:text-brand-red text-sm font-semibold transition-colors disabled:opacity-60"
-                >
-                  <FileDown className="h-3.5 w-3.5" />
-                  {y}
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              onClick={() => { setReportFrom(""); setReportTo(""); }}
-              className="ml-auto px-2 py-1 rounded-md border border-border bg-background hover:border-primary/40 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Limpiar
-            </button>
-          </div>
-          <div className="mt-3 text-[11px] text-muted-foreground">
-            Datos disponibles: {fmtDate(ds.dateRange.from)} — {fmtDate(ds.dateRange.to)}
-          </div>
-        </div>
-      </section>
-
-      {/* ===== Reporte de Consumo por Cliente (Excel / PDF) ===== */}
-      <section className="mt-6 rounded-2xl bg-card border border-border p-6 sm:p-8 shadow-[var(--shadow-sm)]">
-        <div className="flex items-start gap-3 mb-5">
-          <div className="h-10 w-10 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
-            <Users className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="text-base font-bold tracking-tight">Consumo por Cliente</h3>
-            <p className="text-sm text-muted-foreground mt-0.5 max-w-2xl">
-              Genera un reporte con los clientes que consumieron en el período seleccionado,
-              desglosando el consumo mes a mes (N° cliente, nombre y total por mes/año).
-              Disponible en Excel y PDF. Si dejas las fechas en blanco, se usará todo el rango disponible.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid sm:grid-cols-[1fr_1fr_auto_auto] gap-3 items-end">
-          <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 flex items-center gap-1.5">
-              <CalendarRange className="h-3.5 w-3.5" /> Desde
-            </label>
-            <input
-              type="date"
-              value={consFrom}
-              min={ds.dateRange.from}
-              max={ds.dateRange.to}
-              onChange={(e) => setConsFrom(e.target.value)}
-              className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-          <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 flex items-center gap-1.5">
-              <CalendarRange className="h-3.5 w-3.5" /> Hasta
-            </label>
-            <input
-              type="date"
-              value={consTo}
-              min={consFrom || ds.dateRange.from}
-              max={ds.dateRange.to}
-              onChange={(e) => setConsTo(e.target.value)}
-              className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-          <button
-            onClick={() => handleConsumption("xlsx")}
-            disabled={consBusy !== null}
-            className="h-10 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 text-white px-4 text-sm font-semibold shadow-[var(--shadow-sm)] hover:opacity-90 disabled:opacity-60 transition-opacity whitespace-nowrap"
-          >
-            {consBusy === "xlsx" ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Generando...</>
-            ) : (
-              <><FileSpreadsheet className="h-4 w-4" /> Excel</>
-            )}
-          </button>
-          <button
-            onClick={() => handleConsumption("pdf")}
-            disabled={consBusy !== null}
-            className="h-10 inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red text-brand-red-foreground px-4 text-sm font-semibold shadow-[var(--shadow-sm)] hover:opacity-90 disabled:opacity-60 transition-opacity whitespace-nowrap"
-          >
-            {consBusy === "pdf" ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Generando...</>
-            ) : (
-              <><FileDown className="h-4 w-4" /> PDF</>
-            )}
-          </button>
-        </div>
-
-        <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
-          <span className="text-[11px] text-muted-foreground">
-            Datos disponibles: {fmtDate(ds.dateRange.from)} — {fmtDate(ds.dateRange.to)}
-          </span>
-          <button
-            type="button"
-            onClick={() => { setConsFrom(""); setConsTo(""); }}
-            className="px-2 py-1 rounded-md border border-border bg-background hover:border-primary/40 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Limpiar fechas
-          </button>
-        </div>
-      </section>
+      <ReportCenter
+        invoices={ds.invoices}
+        dateRange={ds.dateRange}
+        periodLabel={String(periodLabel)}
+        onExecutivePDF={handleGeneratePDF}
+      />
     </div>
   );
 }

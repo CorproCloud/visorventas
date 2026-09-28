@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import {
   FileDown, FileSpreadsheet, Loader2, CalendarRange, Package, Users, Wallet,
-  BarChart3, Layers, FileText, UserMinus, LayoutDashboard, UserCheck,
+  BarChart3, Layers, FileText, UserMinus, LayoutDashboard, UserCheck, TrendingUp, ExternalLink,
 } from "lucide-react";
 import { fmtDate } from "@/lib/format";
 import type { Invoice } from "@/lib/types";
@@ -27,6 +28,7 @@ interface ReportDef {
 }
 
 const REPORTS: ReportDef[] = [
+  { key: "comercial", label: "Reporte Área Comercial General", description: "KPIs, rotación, Pareto 80/20, stock muerto y resumen ejecutivo.", icon: TrendingUp, formats: ["pdf"] },
   { key: "ejecutivo", label: "Reporte Ejecutivo", description: "KPIs, gráficas y análisis automático del período.", icon: LayoutDashboard, formats: ["pdf"] },
   { key: "productos", label: "Ventas por Producto", description: "Productos ordenados de mayor a menor venta en el período.", icon: Package, formats: ["pdf", "xlsx"] },
   { key: "consumo", label: "Consumo por Cliente", description: "Clientes que consumieron, desglosado mes a mes.", icon: Users, formats: ["pdf", "xlsx"] },
@@ -60,6 +62,10 @@ export function ReportCenter({ invoices, dateRange, periodLabel, onExecutivePDF 
     if (!f || !t) return;
     setBusy(fmt);
     try {
+      if (type === "comercial") {
+        window.location.href = "/reporte-comercial";
+        return;
+      }
       if (type === "ejecutivo") {
         await onExecutivePDF(f, t);
         return;
@@ -181,7 +187,13 @@ export function ReportCenter({ invoices, dateRange, periodLabel, onExecutivePDF 
         </button>
       </div>
 
-      {!def.formats.includes("xlsx") && (
+      {type === "comercial" && (
+        <Link to="/reporte-comercial" className="mt-3 inline-flex items-center gap-2 rounded-lg border border-brand-red text-brand-red px-4 py-2 text-sm font-semibold hover:bg-brand-red/5">
+          <ExternalLink className="h-4 w-4" /> Abrir dashboard interactivo
+        </Link>
+      )}
+
+      {!def.formats.includes("xlsx") && type !== "comercial" && (
         <p className="mt-2 text-[11px] text-muted-foreground">
           El {def.label} incluye gráficas, por lo que solo está disponible en PDF.
         </p>
