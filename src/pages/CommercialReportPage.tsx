@@ -120,7 +120,7 @@ export function CommercialReportPage() {
                   <XAxis dataKey="period" tick={{ fontSize: 11 }} />
                   <YAxis yAxisId="l" tick={{ fontSize: 11 }} tickFormatter={(v) => fmtMoney(v, true)} />
                   <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v: number, n: string) => (n === "Ventas" ? fmtMoney(v) : fmtNumber(v))} />
+                  <Tooltip formatter={(v: any, n: any) => (n === "Ventas" ? fmtMoney(v) : fmtNumber(v))} />
                   <Legend />
                   <Bar yAxisId="l" dataKey="ventas" name="Ventas" fill="var(--brand-red)" radius={[4, 4, 0, 0]} />
                   <Line yAxisId="r" dataKey="unidades" name="Unidades" stroke="var(--primary)" strokeWidth={2} dot={false} />
@@ -185,7 +185,7 @@ export function CommercialReportPage() {
                 <XAxis dataKey="short" angle={-40} textAnchor="end" interval={0} tick={{ fontSize: 10 }} />
                 <YAxis yAxisId="l" tickFormatter={(v) => fmtMoney(v, true)} tick={{ fontSize: 11 }} />
                 <YAxis yAxisId="r" orientation="right" domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v: number, n: string) => (n === "% acumulado" ? `${v.toFixed(1)}%` : fmtMoney(v))} labelFormatter={(_, p) => p?.[0]?.payload?.name ?? ""} />
+                <Tooltip formatter={(v: any, n: any) => (n === "% acumulado" ? `${v.toFixed(1)}%` : fmtMoney(v))} labelFormatter={(_, p) => p?.[0]?.payload?.name ?? ""} />
                 <Bar yAxisId="l" dataKey="value" name="Importe" fill="var(--primary)" radius={[3, 3, 0, 0]} />
                 <Line yAxisId="r" dataKey="cumPct" name="% acumulado" stroke="var(--brand-red)" strokeWidth={2} dot={false} />
               </ComposedChart>
